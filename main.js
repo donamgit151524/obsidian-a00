@@ -129,14 +129,21 @@ class WordSuggest extends EditorSuggest {
     const { entry, key } = item;
     el.addClass("gyta-item");
     const top = el.createDiv({ cls: "gyta-top" });
-    top.createSpan({ cls: "gyta-term", text: entry.term });
-    if (key.isAlias) top.createSpan({ cls: "gyta-alias", text: `(${key.text})` });
+    if (key.isForm) {
+      // "went → go"
+      top.createSpan({ cls: "gyta-term", text: key.text });
+      top.createSpan({ cls: "gyta-alias", text: `→ ${entry.term}` });
+    } else {
+      top.createSpan({ cls: "gyta-term", text: entry.term });
+      if (key.isAlias) top.createSpan({ cls: "gyta-alias", text: `(${key.text})` });
+    }
     if (entry.ipa) top.createSpan({ cls: "gyta-ipa", text: entry.ipa });
     if (entry.loai) top.createSpan({ cls: "gyta-type", text: entry.loai });
     if (this.plugin.activeFolders().length > 1) {
       top.createSpan({ cls: "gyta-folder", text: entry.folder.split("/").pop() });
     }
-    if (entry.nghia) el.createDiv({ cls: "gyta-meaning", text: entry.nghia });
+    const meaning = [key.isForm ? `${key.label} của ${entry.term}` : "", entry.nghia].filter(Boolean).join(" · ");
+    if (meaning) el.createDiv({ cls: "gyta-meaning", text: meaning });
   }
 
   selectSuggestion(item) {
@@ -144,8 +151,8 @@ class WordSuggest extends EditorSuggest {
     if (!ctx) return;
     const { entry, key, sfx } = item;
 
-    // Giữ chữ hoa đầu câu: gõ "Hel" -> [[hello|Hello]]
-    let display = key.isAlias ? key.text : entry.term;
+    // Giữ chữ hoa đầu câu: gõ "Hel" -> [[hello|Hello]]; biến thể giữ chữ đã chia: [[go|went]]
+    let display = key.isAlias || key.isForm ? key.text : entry.term;
     if (/^[A-Z]/.test(sfx.raw) && /^[a-z]/.test(display)) {
       display = display[0].toUpperCase() + display.slice(1);
     }
@@ -451,6 +458,7 @@ module.exports = class GoiYTiengAnh extends Plugin {
       .map((file) => {
         const fm = cache.getFileCache(file)?.frontmatter || {};
         const aliases = parseFrontMatterAliases(fm) || [];
+        const forms = fm.khong_chia === true ? [] : inflect(file.basename, str(fm.loai), list(fm.bien_the));
         return {
           path: file.path,
           folder: this.folderFor(file.path).path,
@@ -461,6 +469,7 @@ module.exports = class GoiYTiengAnh extends Plugin {
           keys: [
             { text: file.basename, norm: normalize(file.basename), isAlias: false },
             ...aliases.map((a) => ({ text: a, norm: normalize(a), isAlias: true })),
+            ...forms.map((f) => ({ text: f.text, norm: normalize(f.text), isForm: true, label: f.label })),
           ],
         };
       });
@@ -493,13 +502,14 @@ module.exports = class GoiYTiengAnh extends Plugin {
       `loai: ${q(loai)}`,
       `nghia: ${q(nghia)}`,
       "aliases: []",
+      "bien_the: []",
       `tags: [tu-vung${withCard ? ", " + cfg.tag : ""}]`,
       "---",
       "",
       "## Ví dụ",
       examples || "- ",
       "",
-      ...(withCard ? [CARD_HEADING, "", cardLine({ term, ipa, loai, nghia }), ""] : []),
+      ...(withCard ? [CARD_HEADING, "", ...cardLines({ term, ipa, loai, nghia }).flatMap((l) => [l, ""])] : []),
       "## Ghi chú",
       "",
     ].join("\n");
@@ -518,16 +528,22 @@ module.exports = class GoiYTiengAnh extends Plugin {
       const fm = this.app.metadataCache.getFileCache(file)?.frontmatter || {};
       if (!str(fm.nghia).trim()) continue;
       const text = await this.app.vault.read(file);
-      if (text.includes(CARD_HEADING)) continue;
+      // Chỉ thêm những dòng thẻ chưa có (so theo phần câu hỏi), giữ nguyên lịch ôn của thẻ cũ
+      const data = { term: file.basename, ipa: str(fm.ipa), loai: str(fm.loai), nghia: str(fm.nghia) };
+      const wanted = text.includes(CARD_HEADING)
+        ? [fm.khong_chia === true ? null : irregularCard(data.term, data.loai)] // đã có thẻ chính
+        : [cardLine(data), fm.khong_chia === true ? null : irregularCard(data.term, data.loai)];
+      const missing = wanted.filter((l) => l && !text.includes(l.split(/:::?/)[0]));
+      if (!missing.length) continue;
 
-      const line = cardLine({
-        term: file.basename,
-        ipa: str(fm.ipa),
-        loai: str(fm.loai),
-        nghia: str(fm.nghia),
-      });
+      const lines = missing.map((l) => `${l}\n\n`).join("");
       await this.app.vault.process(file, (t) => {
-        const block = `${CARD_HEADING}\n\n${line}\n\n`;
+        const h = t.indexOf(CARD_HEADING);
+        if (h >= 0) {
+          const at = h + CARD_HEADING.length;
+          return t.slice(0, at) + "\n\n" + lines.trimEnd() + t.slice(at);
+        }
+        const block = `${CARD_HEADING}\n\n${lines}`;
         const i = t.indexOf("## Ghi chú");
         return i >= 0 ? t.slice(0, i) + block + t.slice(i) : t.replace(/\s*$/, `\n\n${block}`);
       });
@@ -560,8 +576,171 @@ function cardLine({ term, ipa, loai, nghia }) {
   return `${q}:::${a}`;
 }
 
+function cardLines(data) {
+  return [cardLine(data), irregularCard(data.term, data.loai)].filter(Boolean);
+}
+
+// ---------- Biến thể từ (chia động từ, số nhiều, so sánh) ----------
+
+// "nguyên mẫu quá khứ phân_từ", dạng thay thế cách nhau bằng "/"
+const IRREGULAR_VERBS = `
+arise arose arisen|awake awoke awoken|be was/were been|bear bore born/borne|beat beat beaten
+become became become|begin began begun|bend bent bent|bet bet bet|bind bound bound|bite bit bitten
+bleed bled bled|blow blew blown|break broke broken|breed bred bred|bring brought brought
+broadcast broadcast broadcast|build built built|burn burnt/burned burnt/burned|burst burst burst
+buy bought bought|catch caught caught|choose chose chosen|cling clung clung|come came come
+cost cost cost|creep crept crept|cut cut cut|deal dealt dealt|dig dug dug|do did done|draw drew drawn
+dream dreamt/dreamed dreamt/dreamed|drink drank drunk|drive drove driven|eat ate eaten|fall fell fallen
+feed fed fed|feel felt felt|fight fought fought|find found found|flee fled fled|fly flew flown
+forbid forbade forbidden|forecast forecast forecast|forget forgot forgotten|forgive forgave forgiven
+freeze froze frozen|get got got/gotten|give gave given|go went gone|grind ground ground|grow grew grown
+hang hung hung|have had had|hear heard heard|hide hid hidden|hit hit hit|hold held held|hurt hurt hurt
+keep kept kept|kneel knelt knelt|know knew known|lay laid laid|lead led led|lean leant/leaned leant/leaned
+learn learnt/learned learnt/learned|leave left left|lend lent lent|let let let|lie lay lain|light lit lit
+lose lost lost|make made made|mean meant meant|meet met met|mistake mistook mistaken
+misunderstand misunderstood misunderstood|overcome overcame overcome|pay paid paid|prove proved proven/proved
+put put put|quit quit quit|read read read|ride rode ridden|ring rang rung|rise rose risen|run ran run
+say said said|see saw seen|seek sought sought|sell sold sold|send sent sent|set set set|sew sewed sewn
+shake shook shaken|shine shone shone|shoot shot shot|show showed shown|shrink shrank shrunk|shut shut shut
+sing sang sung|sink sank sunk|sit sat sat|sleep slept slept|slide slid slid|smell smelt/smelled smelt/smelled
+speak spoke spoken|speed sped sped|spell spelt/spelled spelt/spelled|spend spent spent|spill spilt/spilled spilt/spilled
+spin spun spun|spit spat spat|split split split|spoil spoilt/spoiled spoilt/spoiled|spread spread spread
+spring sprang sprung|stand stood stood|steal stole stolen|stick stuck stuck|sting stung stung|stink stank stunk
+strike struck struck|strive strove striven|swear swore sworn|sweep swept swept|swim swam swum|swing swung swung
+take took taken|teach taught taught|tear tore torn|tell told told|think thought thought|throw threw thrown
+understand understood understood|undertake undertook undertaken|upset upset upset|wake woke woken
+wear wore worn|weave wove woven|weep wept wept|win won won|wind wound wound|withdraw withdrew withdrawn
+write wrote written`;
+
+const IRREGULAR = new Map(
+  IRREGULAR_VERBS.split(/[|\n]/)
+    .map((s) => s.trim().split(/\s+/))
+    .filter((p) => p.length === 3)
+    .map(([base, v2, v3]) => [base, { v2: v2.split("/"), v3: v3.split("/") }])
+);
+
+const THIRD_PERSON = { be: ["is", "am", "are"], have: ["has"], do: ["does"] };
+
+const IRREGULAR_NOUNS = {
+  man: "men", woman: "women", child: "children", person: "people", foot: "feet", tooth: "teeth",
+  mouse: "mice", goose: "geese", knife: "knives", leaf: "leaves", life: "lives", wife: "wives",
+  half: "halves", wolf: "wolves", shelf: "shelves",
+};
+
+const IRREGULAR_ADJ = {
+  good: ["better", "best"], bad: ["worse", "worst"], far: ["farther", "farthest"],
+  little: ["less", "least"], many: ["more", "most"], much: ["more", "most"],
+};
+
+const VOWEL = /[aeiou]/;
+
+function syllables(w) {
+  // Bỏ "e" câm cuối từ (nice, large) nhưng giữ "-le" (simple)
+  return (w.replace(/(?<!l)e$/, "").match(/[aeiouy]+/g) || []).length;
+}
+
+// Một âm tiết, kết thúc phụ âm-nguyên âm-phụ âm: stop -> stopp-, big -> bigg-
+function doubles(w) {
+  return syllables(w) === 1 && /[^aeiou][aeiou][^aeiouwxy]$/.test(w);
+}
+
+function thirdPerson(w) {
+  if (THIRD_PERSON[w]) return THIRD_PERSON[w];
+  if (/(s|x|z|ch|sh|o)$/.test(w)) return [w + "es"];
+  if (/[^aeiou]y$/.test(w)) return [w.slice(0, -1) + "ies"];
+  return [w + "s"];
+}
+
+function pastRegular(w) {
+  if (w.endsWith("e")) return w + "d";
+  if (/[^aeiou]y$/.test(w)) return w.slice(0, -1) + "ied";
+  if (doubles(w)) return w + w.slice(-1) + "ed";
+  return w + "ed";
+}
+
+function ing(w) {
+  if (w === "be") return "being";
+  if (w.endsWith("ie")) return w.slice(0, -2) + "ying";
+  if (/[^eioy]e$/.test(w) && w.length > 2) return w.slice(0, -1) + "ing";
+  if (doubles(w)) return w + w.slice(-1) + "ing";
+  return w + "ing";
+}
+
+function plural(w) {
+  if (IRREGULAR_NOUNS[w]) return IRREGULAR_NOUNS[w];
+  if (/(s|x|z|ch|sh)$/.test(w)) return w + "es";
+  if (/[^aeiou]y$/.test(w)) return w.slice(0, -1) + "ies";
+  return w + "s";
+}
+
+function comparatives(w) {
+  if (IRREGULAR_ADJ[w]) return IRREGULAR_ADJ[w];
+  const n = syllables(w);
+  // Tính từ dài (beautiful) dùng more/most, không chia
+  if (n > 2 || (n === 2 && !w.endsWith("y"))) return [];
+  if (/[^aeiou]y$/.test(w)) return [w.slice(0, -1) + "ier", w.slice(0, -1) + "iest"];
+  if (w.endsWith("e")) return [w + "r", w + "st"];
+  if (doubles(w)) return [w + w.slice(-1) + "er", w + w.slice(-1) + "est"];
+  return [w + "er", w + "est"];
+}
+
+// Trả về [{ text, label }] các dạng biến thể của từ/cụm từ, theo từ loại
+function inflect(term, loai, extra) {
+  const out = new Map();
+  const add = (text, label) => {
+    const t = text.trim();
+    if (t && normalize(t) !== normalize(term) && !out.has(normalize(t))) out.set(normalize(t), { text: t, label });
+  };
+
+  for (const t of extra) add(t, "biến thể");
+
+  const type = (loai || "").toLowerCase();
+  const words = term.trim().split(/\s+/);
+  // Chỉ chia từ tiếng Anh thường (bỏ qua GPIO, HAL_GPIO_WritePin…)
+  if (!words.every((w) => /^[a-z][a-z'-]*$/.test(w))) return [...out.values()];
+
+  if (type.includes("động từ")) {
+    // Cụm động từ: chia từ đầu, giữ phần sau (look up -> looked up)
+    const [head, ...rest] = words;
+    const tail = rest.length ? " " + rest.join(" ") : "";
+    const irr = IRREGULAR.get(head);
+    for (const f of thirdPerson(head)) add(f + tail, "ngôi 3 số ít");
+    for (const f of irr ? irr.v2 : [pastRegular(head)]) add(f + tail, "quá khứ");
+    for (const f of irr ? irr.v3 : [pastRegular(head)]) add(f + tail, "quá khứ phân từ");
+    add(ing(head) + tail, "V-ing");
+  }
+  if (type.includes("danh từ")) {
+    // Cụm danh từ: số nhiều ở từ cuối
+    const last = words[words.length - 1];
+    add([...words.slice(0, -1), plural(last)].join(" "), "số nhiều");
+  }
+  if (type.includes("tính từ") && words.length === 1) {
+    const [er, est] = comparatives(words[0]);
+    if (er) add(er, "so sánh hơn");
+    if (est) add(est, "so sánh nhất");
+  }
+  return [...out.values()];
+}
+
+// Thẻ ôn V2 – V3 cho động từ bất quy tắc (kể cả cụm: give up -> gave up – given up)
+function irregularCard(term, loai) {
+  if (!(loai || "").toLowerCase().includes("động từ")) return null;
+  const [head, ...rest] = term.trim().split(/\s+/);
+  const irr = IRREGULAR.get(head);
+  if (!irr) return null;
+  const tail = rest.length ? " " + rest.join(" ") : "";
+  const v2 = irr.v2.map((f) => f + tail).join("/");
+  const v3 = irr.v3.map((f) => f + tail).join("/");
+  return `**${term}** (V2 – V3)::${v2} – ${v3}`;
+}
+
 function normalize(s) {
   return s.toLowerCase().replace(/’/g, "'").replace(/\s+/g, " ").trim();
+}
+
+function list(v) {
+  if (v == null) return [];
+  return (Array.isArray(v) ? v : String(v).split(",")).map((x) => String(x).trim()).filter(Boolean);
 }
 
 function str(v) {

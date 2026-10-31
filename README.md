@@ -34,8 +34,29 @@ tags: [tu-vung, flashcards/tieng-anh]
 ## Ghi chú
 ```
 
-- `aliases`: các dạng khác (looked up, looking up…) cũng gõ ra được.
+- `aliases`: từ đồng nghĩa / cách viết khác (hullo) cũng gõ ra được.
 - `## Thẻ ôn`: dòng `:::` tạo thẻ hai chiều cho Spaced Repetition.
+
+## Biến thể (chia động từ, số nhiều, so sánh)
+
+Chỉ cần một ghi chú cho dạng gốc. Plugin tự sinh biến thể theo `loai`, gõ biến thể sẽ ra gợi ý và link về dạng gốc nhưng giữ chữ đã chia:
+
+```
+Yesterday I wen   →   Yesterday I [[go|went]]
+She gave u        →   She [[give up|gave up]]
+two childr        →   two [[child|children]]
+```
+
+| `loai` chứa | Tự sinh |
+|---|---|
+| động từ (kể cả cụm động từ) | -s/-es, quá khứ, quá khứ phân từ, -ing; cụm động từ chia từ đầu (look up → looked up) |
+| danh từ | số nhiều (box → boxes, city → cities, child → children) |
+| tính từ (ngắn) | so sánh hơn / nhất (big → bigger, biggest; happy → happier) |
+
+- Kèm sẵn bảng ~150 động từ bất quy tắc (go-went-gone, take-took-taken…).
+- Động từ bất quy tắc có thêm thẻ `**go** (V2 – V3)::went – gone`.
+- Quy tắc sai/thiếu (prefer → preferred): thêm vào `bien_the: [preferred, preferring]`.
+- Không muốn chia (thuật ngữ, tên riêng): `khong_chia: true`. Từ có chữ hoa hoặc ký tự `_`, số (GPIO, HAL_…) tự động không chia.
 
 ## Cài đặt
 
