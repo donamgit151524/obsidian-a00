@@ -1411,6 +1411,7 @@ p|ab/abs|rời xa
 p|ad/ac/af/ag/al/ap/ar/as/at|hướng tới, thêm vào
 p|anti|chống lại
 p|auto|tự
+p|be|làm cho; nhấn mạnh
 p|bi|hai
 p|con/com/co/col/cor|cùng nhau
 p|contra/counter|ngược lại
@@ -1421,8 +1422,9 @@ p|en/em|làm cho; vào trong
 p|extra|ngoài, vượt
 p|fore|trước
 p|in/im/il/ir|vào trong; không
-p|inter|giữa
+p|inter/enter|giữa
 p|intro/intra|vào trong
+p|main|tay (gốc manu: giữ bằng tay)
 p|micro|nhỏ
 p|mis|sai
 p|mono|một
@@ -1455,6 +1457,7 @@ s|ant/ent|người/vật làm; có tính
 s|ary/ery/ory|nơi chốn; liên quan đến
 s|ate|làm cho (động từ)
 s|ation/ition/tion/sion/ion|danh từ: hành động, quá trình
+s|ative|có tính, thiên về (tính từ)
 s|ator/er/or|người/vật làm
 s|atory|liên quan đến (tính từ)
 s|dom|lĩnh vực, trạng thái
@@ -1514,6 +1517,7 @@ r|hydr|nước
 r|ject|ném
 r|jud|phán xét
 r|junct|nối
+r|labor/labour|lao động, làm việc
 r|lect/leg|chọn; đọc
 r|loc|nơi chốn
 r|log|lời nói; lý lẽ
@@ -1644,13 +1648,23 @@ const NO_SPLIT = new Set(
   ).split(" ")
 );
 
+// Tách sẵn cho từ luật không đoán đúng: gốc đổi dạng trùng gốc khác (re-ten-tion thuộc tain, không phải tend)
+const MANUAL_SPLITS = {
+  maintain: "main- + tain",
+  maintenance: "main- + ten + -ance",
+  sustenance: "sus- + ten + -ance",
+  retention: "re- + ten + -tion",
+  detention: "de- + ten + -tion",
+  dispirit: "dis- + spirit",
+};
+
 // Đề xuất cách tách: tiền tố + gốc + hậu tố. Chỉ trả kết quả khi thấy gốc từ trong bảng,
 // hoặc tiền tố + từ có thật (un + happy), hoặc từ có thật + hậu tố (spirit + ual).
 function analyze(term) {
   const w = (term || "").toLowerCase();
   if (analyzeCache.has(w)) return analyzeCache.get(w);
-  let result = null;
-  if (/^[a-z]{4,}$/.test(w) && !NO_SPLIT.has(w)) {
+  let result = MANUAL_SPLITS[w] ? parseParts(MANUAL_SPLITS[w]) : null;
+  if (!result && /^[a-z]{4,}$/.test(w) && !NO_SPLIT.has(w)) {
     let best = null;
     for (const form of MORPH_FORMS.root) {
       for (let i = w.indexOf(form); i >= 0; i = w.indexOf(form, i + 1)) {
@@ -4816,5 +4830,26 @@ corrupt|kəˈrʌpt|tính từ, động từ|tham nhũng, hư hỏng; làm hư h�
 corruption|kəˈrʌpʃən|danh từ|sự tham nhũng
 erupt|ɪˈrʌpt|động từ|phun trào, bùng phát
 eruption|ɪˈrʌpʃən|danh từ|sự phun trào
-interruption|ˌɪntəˈrʌpʃən|danh từ|sự gián đoạn`;
+interruption|ˌɪntəˈrʌpʃən|danh từ|sự gián đoạn
+sustain|səˈsteɪn|động từ|duy trì; chống đỡ; chịu đựng
+sustainable|səˈsteɪnəbəl|tính từ|bền vững
+sustenance|ˈsʌstənəns|danh từ|sự nuôi dưỡng; chất bổ, lương thực
+retention|rɪˈtenʃən|danh từ|sự giữ lại, duy trì
+obtainment|əbˈteɪnmənt|danh từ|sự đạt được
+detain|dɪˈteɪn|động từ|giam giữ; giữ lại
+detention|dɪˈtenʃən|danh từ|sự giam giữ; phạt ở lại trường
+entertain|ˌentərˈteɪn|động từ|giải trí, tiếp đãi
+entertainer|ˌentərˈteɪnər|danh từ|nghệ sĩ giải trí
+collaborate|kəˈlæbəreɪt|động từ|hợp tác, cộng tác
+collaboration|kəˌlæbəˈreɪʃən|danh từ|sự hợp tác
+collaborator|kəˈlæbəreɪtər|danh từ|cộng tác viên
+collaborative|kəˈlæbəreɪtɪv|tính từ|mang tính hợp tác
+elaborate|ɪˈlæbərət, ɪˈlæbəreɪt|tính từ, động từ|công phu, tỉ mỉ; trình bày chi tiết
+elaboration|ɪˌlæbəˈreɪʃən|danh từ|sự trình bày chi tiết, sự trau chuốt
+elaborative|ɪˈlæbəreɪtɪv|tính từ|bổ sung chi tiết
+elaborately|ɪˈlæbərətli|trạng từ|một cách công phu, tỉ mỉ
+belabor|bɪˈleɪbər|động từ|nói đi nói lại; đánh đập
+laborious|ləˈbɔːriəs|tính từ|vất vả, tốn công
+laboriously|ləˈbɔːriəsli|trạng từ|một cách vất vả
+laboriousness|ləˈbɔːriəsnəs|danh từ|sự vất vả, tốn công`;
 // @@DICT_END
