@@ -299,12 +299,36 @@ class AddWordModal extends Modal {
         d.onChange((v) => (this.folder = this.folders[Number(v)]));
       });
     }
+    // Sửa ô Từ (postponed -> postpone): tra lại từ điển và đoán lại cách tách,
+    // chỉ điền những ô bạn chưa tự gõ
+    const inputs = {};
+    const touched = new Set();
+    const refill = (term) => {
+      const d = dictLookup(term);
+      const parts = analyze(term);
+      const guess = {
+        ipa: d?.ipa || "",
+        loai: d?.loai || "",
+        nghia: d?.nghia || "",
+        phan_tich: parts && parts.length > 1 ? formatParts(parts) : "",
+      };
+      for (const [k, v] of Object.entries(guess)) {
+        if (touched.has(k)) continue;
+        this.data[k] = v;
+        inputs[k]?.setValue(v);
+      }
+    };
     const field = (name, prop, placeholder, area) =>
       new Setting(contentEl).setName(name).then((st) => {
         const add = area ? st.addTextArea.bind(st) : st.addText.bind(st);
         add((t) => {
+          inputs[prop] = t;
           t.setPlaceholder(placeholder).setValue(this.data[prop]);
-          t.onChange((v) => (this.data[prop] = v));
+          t.onChange((v) => {
+            this.data[prop] = v;
+            if (prop === "term") refill(v.trim());
+            else touched.add(prop);
+          });
           if (prop === "term") setTimeout(() => t.inputEl.focus(), 0);
         });
       });
@@ -762,7 +786,10 @@ module.exports = class GoiYTiengAnh extends Plugin {
           }
         }
         new AddWordModal(this, term.trim(), (file) => {
-          if (term) editor.replaceRange(`[[${file.basename}]]`, from, to);
+          // Bôi đen "postponed" mà lưu dạng gốc "postpone" -> [[postpone|postponed]], câu giữ nguyên chữ
+          const shown = term.trim();
+          const link = shown === file.basename ? `[[${file.basename}]]` : `[[${file.basename}|${shown}]]`;
+          if (shown) editor.replaceRange(link, from, to);
         }).open();
       },
     });
