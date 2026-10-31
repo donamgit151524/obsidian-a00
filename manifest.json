@@ -1,7 +1,7 @@
 {
   "id": "goi-y-tieng-anh",
   "name": "Gợi ý tiếng Anh",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "minAppVersion": "1.5.0",
   "description": "Gợi ý từ/cụm từ (tiếng Anh, thuật ngữ…) khi gõ, chọn để chèn wikilink tới ghi chú từ vựng; tự tạo thẻ ôn Spaced Repetition.",
   "author": "T1026",

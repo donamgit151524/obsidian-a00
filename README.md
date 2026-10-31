@@ -53,6 +53,7 @@ two childr        →   two [[child|children]]
 | danh từ | số nhiều (box → boxes, city → cities, child → children) |
 | tính từ (ngắn) | so sánh hơn / nhất (big → bigger, biggest; happy → happier) |
 
+- Biến thể không ghi vào file; mở ghi chú từ vựng sẽ thấy dòng **Biến thể: goes · went · gone · going** dưới tiêu đề (tắt được trong cài đặt).
 - Kèm sẵn bảng ~150 động từ bất quy tắc (go-went-gone, take-took-taken…).
 - Động từ bất quy tắc có thêm thẻ `**go** (V2 – V3)::went – gone`.
 - Quy tắc sai/thiếu (prefer → preferred): thêm vào `bien_the: [preferred, preferring]`.

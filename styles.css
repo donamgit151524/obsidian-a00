@@ -45,6 +45,34 @@
   flex: 1 1 180px;
 }
 
+.gyta-forms {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 12px;
+  font-size: var(--font-ui-small);
+}
+
+.gyta-forms-title {
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+
+.gyta-form {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: var(--radius-s);
+  background: var(--background-modifier-hover);
+}
+
+.gyta-form-label {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+}
+
 .gyta-meaning {
   color: var(--text-normal);
   font-size: var(--font-ui-small);

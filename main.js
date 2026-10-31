@@ -17,6 +17,7 @@ const {
 const DEFAULT_SETTINGS = {
   enabled: true,
   above: true,
+  showForms: true,
   // Mỗi thư mục: path = nơi chứa ghi chú, tag = bộ thẻ ôn Spaced Repetition (trống = không tạo thẻ)
   folders: [],
   minChars: 2,
@@ -289,6 +290,16 @@ class SettingTab extends PluginSettingTab {
         })
       );
     new Setting(containerEl)
+      .setName("Hiện biến thể trong ghi chú từ vựng")
+      .setDesc("Dòng \"Biến thể: goes · went · gone · going\" dưới tiêu đề. Chỉ hiển thị, không ghi vào file.")
+      .addToggle((t) =>
+        t.setValue(p.settings.showForms).onChange(async (v) => {
+          p.settings.showForms = v;
+          await p.saveSettings();
+          p.refreshForms();
+        })
+      );
+    new Setting(containerEl)
       .setName("Thư mục từ vựng")
       .setDesc(
         "Mỗi ghi chú trong các thư mục này (kể cả thư mục con) là một từ/cụm từ. " +
@@ -386,6 +397,18 @@ module.exports = class GoiYTiengAnh extends Plugin {
     }));
     this.registerEvent(this.app.metadataCache.on("resolved", () => (this.index = null)));
 
+    // Dòng "Biến thể" dưới tiêu đề ghi chú từ vựng (chỉ hiển thị, không ghi file)
+    const ws = this.app.workspace;
+    this.registerEvent(ws.on("file-open", () => this.refreshForms()));
+    this.registerEvent(ws.on("layout-change", () => this.refreshForms()));
+    this.registerEvent(
+      this.app.metadataCache.on("changed", (f) => {
+        if (this.inFolder(f.path)) setTimeout(() => this.refreshForms(), 0);
+      })
+    );
+    ws.onLayoutReady(() => this.refreshForms());
+    this.register(() => document.querySelectorAll(".gyta-forms").forEach((e) => e.remove()));
+
     this.addCommand({
       id: "toggle",
       name: "Bật/tắt gợi ý khi gõ",
@@ -429,6 +452,34 @@ module.exports = class GoiYTiengAnh extends Plugin {
       name: "Thêm từ vựng mới (không chèn link)",
       callback: () => new AddWordModal(this, "").open(),
     });
+  }
+
+  refreshForms() {
+    for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+      const view = leaf.view;
+      view.containerEl.querySelectorAll(".gyta-forms").forEach((e) => e.remove());
+      const file = view.file;
+      if (!this.settings.showForms || !file || !this.inFolder(file.path)) continue;
+      const entry = this.getIndex().find((e) => e.path === file.path);
+      const forms = entry ? entry.keys.filter((k) => k.isForm) : [];
+      if (!forms.length) continue;
+
+      // Đặt ngay dưới tiêu đề, ở cả chế độ soạn thảo lẫn chế độ đọc
+      let anchors = [...view.containerEl.querySelectorAll(".inline-title")];
+      const after = anchors.length > 0;
+      if (!after) anchors = [...view.containerEl.querySelectorAll(".cm-sizer, .markdown-preview-sizer")];
+      for (const anchor of anchors) {
+        const box = createDiv({ cls: "gyta-forms" });
+        box.createSpan({ cls: "gyta-forms-title", text: "Biến thể" });
+        for (const f of forms) {
+          const chip = box.createSpan({ cls: "gyta-form", attr: { "aria-label": f.label } });
+          chip.createSpan({ text: f.text });
+          chip.createSpan({ cls: "gyta-form-label", text: f.label });
+        }
+        if (after) anchor.after(box);
+        else anchor.prepend(box);
+      }
+    }
   }
 
   activeFolders() {
