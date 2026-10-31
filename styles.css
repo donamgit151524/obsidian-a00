@@ -73,6 +73,24 @@
   font-size: var(--font-ui-smaller);
 }
 
+.gyta-irregular {
+  flex-wrap: wrap;
+}
+
+.gyta-irregular .setting-item-control {
+  flex: 1 1 100%;
+}
+
+.gyta-irregular textarea {
+  width: 100%;
+  font-family: var(--font-monospace);
+}
+
+.gyta-irregular-status {
+  margin-top: 4px;
+  color: var(--text-accent);
+}
+
 .gyta-meaning {
   color: var(--text-normal);
   font-size: var(--font-ui-small);

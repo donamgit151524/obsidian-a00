@@ -57,6 +57,14 @@ two childr        →   two [[child|children]]
 - Kèm sẵn bảng ~150 động từ bất quy tắc (go-went-gone, take-took-taken…).
 - Động từ bất quy tắc có thêm thẻ `**go** (V2 – V3)::went – gone`.
 - Quy tắc sai/thiếu (prefer → preferred): thêm vào `bien_the: [preferred, preferring]`.
+- Từ bất quy tắc không có trong bảng: Cài đặt → **Bảng bất quy tắc bổ sung**, mỗi dòng một từ, áp dụng cho mọi ghi chú:
+
+  ```
+  dwell dwelt dwelt          # 3 từ: động từ V1 V2 V3 (hoặc tính từ gốc/hơn/nhất)
+  crisis crises              # 2 từ: danh từ số nhiều
+  cactus cacti/cactuses      # dạng thay thế cách nhau bằng /
+  sheep sheep                # số nhiều giống số ít -> không sinh "sheeps"
+  ```
 - Không muốn chia (thuật ngữ, tên riêng): `khong_chia: true`. Có thể kết hợp với `bien_the` để dùng đúng danh sách của bạn thay cho phần tự sinh (lie = nói dối: `khong_chia: true`, `bien_the: [lies, lied, lying]`). Từ có chữ hoa hoặc ký tự `_`, số (GPIO, HAL_…) tự động không chia.
 
 ## Cài đặt

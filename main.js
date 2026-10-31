@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS = {
   enabled: true,
   above: true,
   showForms: true,
+  extraIrregular: "",
   // Mỗi thư mục: path = nơi chứa ghi chú, tag = bộ thẻ ôn Spaced Repetition (trống = không tạo thẻ)
   folders: [],
   minChars: 2,
@@ -350,6 +351,30 @@ class SettingTab extends PluginSettingTab {
       })
     );
 
+    new Setting(containerEl).setName("Bảng bất quy tắc bổ sung").setHeading();
+    const status = (r) =>
+      `Đang dùng ${r.count} dòng.` + (r.bad.length ? ` Bỏ qua dòng ${r.bad.join(", ")} (phải có 2 hoặc 3 từ).` : "");
+    const info = new Setting(containerEl)
+      .setDesc(
+        "Mỗi dòng một từ, áp dụng cho mọi ghi chú và ưu tiên hơn bảng có sẵn. " +
+          "3 từ: động từ (dwell dwelt dwelt) hoặc tính từ (far further furthest), dùng theo loai của ghi chú. " +
+          "2 từ: danh từ số nhiều (crisis crises). Dạng thay thế cách nhau bằng /. Dòng bắt đầu bằng # là ghi chú."
+      )
+      .setClass("gyta-irregular");
+    const statusEl = info.descEl.createDiv({ cls: "gyta-irregular-status", text: status(setUserIrregular(p.settings.extraIrregular)) });
+    info.addTextArea((t) => {
+      t.setPlaceholder("dwell dwelt dwelt\ncrisis crises\ncactus cacti/cactuses\nsheep sheep")
+        .setValue(p.settings.extraIrregular)
+        .onChange(async (v) => {
+          p.settings.extraIrregular = v;
+          statusEl.setText(status(setUserIrregular(v)));
+          p.index = null;
+          p.refreshForms();
+          await p.saveSettings();
+        });
+      t.inputEl.rows = 8;
+    });
+
     new Setting(containerEl).setName("Tuỳ chỉnh gợi ý").setHeading();
     const num = (name, desc, prop, min, max) =>
       new Setting(containerEl)
@@ -382,6 +407,7 @@ module.exports = class GoiYTiengAnh extends Plugin {
       this.settings.folders = [{ ...DEFAULT_FOLDER, path: data.folder ?? DEFAULT_FOLDER.path }];
     }
     delete this.settings.folder;
+    setUserIrregular(this.settings.extraIrregular);
     this.index = null;
 
     this.registerEditorSuggest(new WordSuggest(this));
@@ -684,7 +710,30 @@ const IRREGULAR_ADJ = {
   little: ["less", "least"], many: ["more", "most"], much: ["more", "most"],
 };
 
-const VOWEL = /[aeiou]/;
+// Bảng bổ sung từ cài đặt, ưu tiên hơn bảng có sẵn.
+// 3 từ: động từ (V1 V2 V3) hoặc tính từ (gốc hơn nhất), dùng theo loai của ghi chú. 2 từ: danh từ số nhiều.
+let userTriples = new Map();
+let userNouns = new Map();
+
+function setUserIrregular(text) {
+  userTriples = new Map();
+  userNouns = new Map();
+  const bad = [];
+  (text || "").split("\n").forEach((raw, i) => {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) return;
+    const p = line.toLowerCase().split(/\s+/);
+    if (p.length === 3) userTriples.set(p[0], { a: p[1].split("/"), b: p[2].split("/") });
+    else if (p.length === 2) userNouns.set(p[0], p[1].split("/"));
+    else bad.push(i + 1);
+  });
+  return { count: userTriples.size + userNouns.size, bad };
+}
+
+function verbForms(head) {
+  const u = userTriples.get(head);
+  return u ? { v2: u.a, v3: u.b } : IRREGULAR.get(head);
+}
 
 function syllables(w) {
   // Bỏ "e" câm cuối từ (nice, large) nhưng giữ "-le" (simple)
@@ -719,13 +768,16 @@ function ing(w) {
 }
 
 function plural(w) {
-  if (IRREGULAR_NOUNS[w]) return IRREGULAR_NOUNS[w];
-  if (/(s|x|z|ch|sh)$/.test(w)) return w + "es";
-  if (/[^aeiou]y$/.test(w)) return w.slice(0, -1) + "ies";
-  return w + "s";
+  if (userNouns.has(w)) return userNouns.get(w);
+  if (IRREGULAR_NOUNS[w]) return [IRREGULAR_NOUNS[w]];
+  if (/(s|x|z|ch|sh)$/.test(w)) return [w + "es"];
+  if (/[^aeiou]y$/.test(w)) return [w.slice(0, -1) + "ies"];
+  return [w + "s"];
 }
 
 function comparatives(w) {
+  const u = userTriples.get(w);
+  if (u) return [u.a[0], u.b[0]];
   if (IRREGULAR_ADJ[w]) return IRREGULAR_ADJ[w];
   const n = syllables(w);
   // Tính từ dài (beautiful) dùng more/most, không chia
@@ -755,7 +807,7 @@ function inflect(term, loai, extra) {
     // Cụm động từ: chia từ đầu, giữ phần sau (look up -> looked up)
     const [head, ...rest] = words;
     const tail = rest.length ? " " + rest.join(" ") : "";
-    const irr = IRREGULAR.get(head);
+    const irr = verbForms(head);
     for (const f of thirdPerson(head)) add(f + tail, "ngôi 3 số ít");
     for (const f of irr ? irr.v2 : [pastRegular(head)]) add(f + tail, "quá khứ");
     for (const f of irr ? irr.v3 : [pastRegular(head)]) add(f + tail, "quá khứ phân từ");
@@ -764,7 +816,7 @@ function inflect(term, loai, extra) {
   if (type.includes("danh từ")) {
     // Cụm danh từ: số nhiều ở từ cuối
     const last = words[words.length - 1];
-    add([...words.slice(0, -1), plural(last)].join(" "), "số nhiều");
+    for (const f of plural(last)) add([...words.slice(0, -1), f].join(" "), "số nhiều");
   }
   if (type.includes("tính từ") && words.length === 1) {
     const [er, est] = comparatives(words[0]);
@@ -778,7 +830,7 @@ function inflect(term, loai, extra) {
 function irregularCard(term, loai) {
   if (!(loai || "").toLowerCase().includes("động từ")) return null;
   const [head, ...rest] = term.trim().split(/\s+/);
-  const irr = IRREGULAR.get(head);
+  const irr = verbForms(head);
   if (!irr) return null;
   const tail = rest.length ? " " + rest.join(" ") : "";
   const v2 = irr.v2.map((f) => f + tail).join("/");
