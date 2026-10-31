@@ -19,6 +19,13 @@ Gõ từ chưa có ghi chú vẫn ra gợi ý (nhãn *từ điển*, kèm phiên
 - Gồm từ thông dụng A–Z và một nhóm thuật ngữ lập trình/điện tử.
 - Dữ liệu nằm trong `dict/*.txt`, mỗi dòng `từ|phiên âm|từ loại|nghĩa`. Sửa xong chạy `./build.ps1` để nhúng vào `main.js` (BRAT chỉ tải `main.js`, nên dữ liệu phải nằm trong đó).
 
+## Học theo ngữ cảnh
+
+- **Lưu câu gặp từ**: chọn từ trong popup → khi viết xong câu (`.` `!` `?` hoặc xuống dòng), câu được chép vào `## Ví dụ` của ghi chú từ (kèm link nguồn). Cần ≥ 3 từ tiếng Anh khác trong câu.
+- **Thẻ điền chỗ trống**: mỗi câu ví dụ → `We need to ==sustain== growth.` (plugin Spaced Repetition đổi `==…==` thành thẻ cloze). Câu cũ: lệnh *Tạo thẻ ôn cho các từ chưa có thẻ* tìm từ và mọi biến thể trong câu.
+- **Cụm từ đi kèm**: lệnh *Thêm cụm từ đi kèm* → dòng `- **sustain growth** — duy trì tăng trưởng` trong `## Cụm từ`, thẻ `**sustain growth**:::…`, và `cum_tu` trong frontmatter để popup gợi ý cụm (chèn `[[sustain|sustain growth]]`).
+- Thẻ *gốc từ* / *tách từ* mặc định **tắt** — cấu tạo từ chỉ còn là gợi ý khi xem ghi chú.
+
 ## Gốc từ: tiền tố, gốc, hậu tố
 
 Học theo họ từ (in- + **spir** + e = thổi hơi vào → truyền cảm hứng):

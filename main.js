@@ -35,7 +35,12 @@ const DEFAULT_SETTINGS = {
   // Gốc từ: dòng "Phân tích" tô màu, khung "Họ từ", ghi chú cho từng tiền tố / gốc / hậu tố
   showMorph: true,
   morphFolder: "Tiếng Anh/Gốc từ",
-  morphCards: true,
+  // Thẻ "gốc từ" / "tách từ" dễ rời rạc -> mặc định tắt, dòng Phân tích vẫn hiện làm gợi ý
+  morphCards: false,
+  // Học theo ngữ cảnh: lưu câu gặp từ vào "## Ví dụ", thẻ điền chỗ trống từ câu ví dụ, thẻ cho cụm từ
+  captureSentences: true,
+  clozeCards: true,
+  phraseCards: true,
 };
 const DEFAULT_FOLDER = { path: "Tiếng Anh/Từ vựng", tag: "flashcards/tieng-anh", enabled: true };
 
@@ -208,8 +213,8 @@ class WordSuggest extends EditorSuggest {
     const { entry, key } = item;
     el.addClass("gyta-item");
     const top = el.createDiv({ cls: "gyta-top" });
-    if (key.isForm) {
-      // "went → go"
+    if (key.isForm || key.isPhrase) {
+      // "went → go", "sustain growth → sustain"
       top.createSpan({ cls: "gyta-term", text: key.text });
       top.createSpan({ cls: "gyta-alias", text: `→ ${entry.term}` });
     } else {
@@ -223,7 +228,8 @@ class WordSuggest extends EditorSuggest {
     } else if (this.plugin.activeFolders().length > 1) {
       top.createSpan({ cls: "gyta-folder", text: entry.folder.split("/").pop() });
     }
-    const meaning = [key.isForm ? `${key.label} của ${entry.term}` : "", entry.nghia].filter(Boolean).join(" · ");
+    const note = key.isForm ? `${key.label} của ${entry.term}` : key.isPhrase ? `cụm từ với ${entry.term}` : "";
+    const meaning = [note, entry.nghia].filter(Boolean).join(" · ");
     if (meaning) el.createDiv({ cls: "gyta-meaning", text: meaning });
     if (this.plugin.settings.showMorph) {
       const parts = (!entry.dict && this.plugin.partsOf(entry)) || analyze(entry.term);
@@ -249,6 +255,12 @@ class WordSuggest extends EditorSuggest {
 
     // Từ trong từ điển: giờ mới tạo ghi chú (kèm thẻ ôn) để link không bị trống
     if (entry.dict) this.plugin.createFromDict(entry).catch((e) => new Notice(e.message));
+
+    // Nhớ câu đang viết; khi câu xong (dấu chấm / xuống dòng) chép vào "## Ví dụ" của từ
+    const notePath = entry.dict ? this.plugin.dictNotePath(entry.term) : entry.path;
+    if (this.plugin.settings.captureSentences && ctx.file?.path !== notePath) {
+      this.plugin.queueSentence({ editor: ctx.editor, sourcePath: ctx.file?.path, line: from.line, link, display, term: entry.term, notePath });
+    }
   }
 }
 
@@ -323,6 +335,57 @@ class AddWordModal extends Modal {
       const file = await this.plugin.createWordNote({ ...this.data, term }, this.folder);
       this.close();
       this.onDone?.(file);
+    } catch (e) {
+      new Notice(e.message);
+    }
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+// ---------- Thêm cụm từ ----------
+
+class AddPhraseModal extends Modal {
+  constructor(plugin, term) {
+    super(plugin.app);
+    this.plugin = plugin;
+    this.data = { term, phrase: "", meaning: "", example: "" };
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    this.setTitle("Thêm cụm từ đi kèm");
+    contentEl.createEl("p", {
+      cls: "setting-item-description",
+      text: "Cụm từ người bản xứ hay dùng với từ này (sustain growth, maintain a relationship…). Có thẻ ôn riêng, và gõ cụm sẽ được gợi ý.",
+    });
+    const field = (name, prop, placeholder) =>
+      new Setting(contentEl).setName(name).addText((t) => {
+        t.setPlaceholder(placeholder).setValue(this.data[prop]).onChange((v) => (this.data[prop] = v));
+        if (prop === (this.data.term ? "phrase" : "term")) setTimeout(() => t.inputEl.focus(), 0);
+      });
+    field("Từ", "term", "sustain");
+    field("Cụm từ", "phrase", "sustain growth");
+    field("Nghĩa", "meaning", "duy trì tăng trưởng");
+    field("Câu ví dụ (không bắt buộc)", "example", "We need to sustain economic growth.");
+    new Setting(contentEl).addButton((b) => b.setButtonText("Lưu").setCta().onClick(() => this.save()));
+    contentEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.save();
+      }
+    });
+  }
+
+  async save() {
+    const d = Object.fromEntries(Object.entries(this.data).map(([k, v]) => [k, v.trim()]));
+    if (!d.term || !d.phrase) return new Notice("Cần nhập từ và cụm từ");
+    try {
+      const file = await this.plugin.addPhrase(d.term, d.phrase, d.meaning, d.example);
+      this.close();
+      await this.app.workspace.getLeaf(false).openFile(file);
     } catch (e) {
       new Notice(e.message);
     }
@@ -548,6 +611,23 @@ class SettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("Học theo ngữ cảnh")
+      .setDesc("Học từ trong câu thật và cụm từ đi kèm, thay vì học từ đơn lẻ.")
+      .setHeading();
+    new Setting(containerEl)
+      .setName("Lưu câu gặp từ")
+      .setDesc("Chọn một từ trong popup → khi viết xong câu (dấu chấm hoặc xuống dòng), câu đó được chép vào mục Ví dụ của từ, kèm link về ghi chú nguồn.")
+      .addToggle((t) => t.setValue(p.settings.captureSentences).onChange((v) => update(() => (p.settings.captureSentences = v))));
+    new Setting(containerEl)
+      .setName("Thẻ điền chỗ trống từ câu ví dụ")
+      .setDesc("Mỗi câu ví dụ thành một thẻ: We need to ==sustain== growth. Dùng lệnh Tạo thẻ ôn cho các từ chưa có thẻ để làm cho câu cũ.")
+      .addToggle((t) => t.setValue(p.settings.clozeCards).onChange((v) => update(() => (p.settings.clozeCards = v))));
+    new Setting(containerEl)
+      .setName("Thẻ cho cụm từ đi kèm")
+      .setDesc("Dòng trong mục Cụm từ (- **sustain growth** — duy trì tăng trưởng) thành thẻ hai chiều.")
+      .addToggle((t) => t.setValue(p.settings.phraseCards).onChange((v) => update(() => (p.settings.phraseCards = v))));
+
+    new Setting(containerEl)
       .setName("Gốc từ (tiền tố, gốc, hậu tố)")
       .setDesc(
         "Ghi chú từ vựng hiện dòng Phân tích tô màu (in- + spir + e) và các từ cùng gốc. " +
@@ -698,6 +778,23 @@ module.exports = class GoiYTiengAnh extends Plugin {
       name: "Thêm từ vựng mới (không chèn link)",
       callback: () => new AddWordModal(this, "").open(),
     });
+
+    this.addCommand({
+      id: "add-phrase",
+      name: "Thêm cụm từ đi kèm",
+      callback: () => {
+        // Đang mở ghi chú từ vựng thì điền sẵn từ đó, không thì lấy chữ đang bôi đen
+        const file = this.app.workspace.getActiveFile();
+        const editor = this.app.workspace.activeEditor?.editor;
+        const term = file && this.inFolder(file.path) ? file.basename : (editor?.getSelection() || "").trim();
+        new AddPhraseModal(this, term).open();
+      },
+    });
+
+    // Lưu câu gặp từ: kiểm tra khi gõ, khi đổi ghi chú (chép luôn) và định kỳ
+    this.registerEvent(this.app.workspace.on("editor-change", () => this.checkPending()));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.checkPending(true)));
+    this.registerInterval(window.setInterval(() => this.checkPending(), 10000));
 
     this.addCommand({
       id: "bulk-split",
@@ -1092,6 +1189,8 @@ module.exports = class GoiYTiengAnh extends Plugin {
             { text: file.basename, norm: normalize(file.basename), isAlias: false },
             ...aliases.map((a) => ({ text: a, norm: normalize(a), isAlias: true })),
             ...forms.map((f) => ({ text: f.text, norm: normalize(f.text), isForm: true, label: f.label })),
+            // Cụm từ đi kèm (cum_tu): gõ "sustain gr" -> [[sustain|sustain growth]]
+            ...list(fm.cum_tu).map((c) => ({ text: c, norm: normalize(c), isAlias: true, isPhrase: true })),
           ],
         };
       });
@@ -1103,13 +1202,21 @@ module.exports = class GoiYTiengAnh extends Plugin {
     return this.index;
   }
 
-  async createFromDict(entry) {
-    const cfg =
+  dictCfg() {
+    return (
       this.activeFolders().find((f) => f.path === this.settings.dictFolder) || {
         path: this.settings.dictFolder,
         tag: (this.activeFolders()[0] || DEFAULT_FOLDER).tag,
-      };
-    return this.createWordNote({ term: entry.term, ipa: entry.ipa, loai: entry.loai, nghia: entry.nghia, vidu: "" }, cfg);
+      }
+    );
+  }
+
+  dictNotePath(term) {
+    return normalizePath(`${this.dictCfg().path}/${term}.md`);
+  }
+
+  async createFromDict(entry) {
+    return this.createWordNote({ term: entry.term, ipa: entry.ipa, loai: entry.loai, nghia: entry.nghia, vidu: "" }, this.dictCfg());
   }
 
   async createWordNote({ term, ipa, loai, nghia, vidu, phan_tich }, cfg = this.activeFolders()[0]) {
@@ -1143,8 +1250,11 @@ module.exports = class GoiYTiengAnh extends Plugin {
       `tags: [tu-vung${withCard ? ", " + cfg.tag : ""}]`,
       "---",
       "",
-      "## Ví dụ",
+      EX_HEADING,
       examples || "- ",
+      "",
+      PHRASE_HEADING,
+      "- ",
       "",
       ...(withCard
         ? [
@@ -1153,6 +1263,7 @@ module.exports = class GoiYTiengAnh extends Plugin {
             ...[
               ...cardLines({ term, ipa, loai, nghia }),
               this.settings.morphCards ? this.morphCard(term, parseParts(phan_tich)) : null,
+              ...(this.settings.clozeCards ? clozeCardsFrom(examples, wordForms(term, loai)) : []),
             ]
               .filter(Boolean)
               .flatMap((l) => [l, ""]),
@@ -1179,25 +1290,19 @@ module.exports = class GoiYTiengAnh extends Plugin {
       const text = await this.app.vault.read(file);
       // Chỉ thêm những dòng thẻ chưa có (so theo phần câu hỏi), giữ nguyên lịch ôn của thẻ cũ
       const data = { term: file.basename, ipa: str(fm.ipa), loai: str(fm.loai), nghia: str(fm.nghia) };
+      const forms = wordForms(data.term, fm.khong_chia === true ? "" : data.loai, list(fm.bien_the));
       const extra = [
         fm.khong_chia === true ? null : irregularCard(data.term, data.loai),
         this.settings.morphCards && fm.phan_tich ? this.morphCard(data.term, parseParts(fm.phan_tich)) : null,
+        // Câu trong "## Ví dụ" -> thẻ điền chỗ trống; dòng "## Cụm từ" -> thẻ cụm từ
+        ...(this.settings.clozeCards ? clozeCardsFrom(sectionBody(text, EX_HEADING), forms) : []),
+        ...(this.settings.phraseCards ? phraseCardsFrom(sectionBody(text, PHRASE_HEADING)) : []),
       ];
       const wanted = text.includes(CARD_HEADING) ? extra : [cardLine(data), ...extra]; // đã có thẻ chính thì thôi
-      const missing = wanted.filter((l) => l && !text.includes(l.split(/:::?/)[0]));
+      const missing = wanted.filter((l) => l && !hasCard(text, l));
       if (!missing.length) continue;
 
-      const lines = missing.map((l) => `${l}\n\n`).join("");
-      await this.app.vault.process(file, (t) => {
-        const h = t.indexOf(CARD_HEADING);
-        if (h >= 0) {
-          const at = h + CARD_HEADING.length;
-          return t.slice(0, at) + "\n\n" + lines.trimEnd() + t.slice(at);
-        }
-        const block = `${CARD_HEADING}\n\n${lines}`;
-        const i = t.indexOf("## Ghi chú");
-        return i >= 0 ? t.slice(0, i) + block + t.slice(i) : t.replace(/\s*$/, `\n\n${block}`);
-      });
+      await this.app.vault.process(file, (t) => insertCards(t, missing));
       await this.app.fileManager.processFrontMatter(file, (f) => {
         const tags = [].concat(f.tags || []).flatMap((t) => String(t).split(/[,\s]+/)).filter(Boolean);
         if (!tags.includes(cfg.tag)) tags.push(cfg.tag);
@@ -1209,16 +1314,222 @@ module.exports = class GoiYTiengAnh extends Plugin {
     return added;
   }
 
+  // ---------- Học theo ngữ cảnh ----------
+
+  // Chọn từ trong popup lúc câu còn đang viết dở -> chờ câu xong rồi mới chép
+  queueSentence(p) {
+    (this.pending ||= []).push({ ...p, time: Date.now() });
+  }
+
+  // Câu xong khi: sau link có dấu . ! ?, hoặc con trỏ đã rời dòng; force = chép luôn (đổi ghi chú, quá 60 giây)
+  async checkPending(force = false) {
+    if (!this.pending?.length) return;
+    const keep = [];
+    for (const p of this.pending) {
+      let line = -1;
+      let text = "";
+      try {
+        for (let d = 0; d <= 10 && line < 0; d++) {
+          for (const i of [p.line + d, p.line - d]) {
+            if (i < 0 || i >= p.editor.lineCount()) continue;
+            if (p.editor.getLine(i).includes(p.link)) {
+              line = i;
+              text = p.editor.getLine(i);
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        line = -1; // trình soạn thảo đã đóng
+      }
+      if (line < 0) continue; // link đã bị xoá
+      const after = text.slice(text.indexOf(p.link) + p.link.length);
+      let moved = false;
+      try {
+        moved = p.editor.getCursor().line !== line;
+      } catch (e) {
+        moved = true;
+      }
+      const done = force || moved || /[.!?]/.test(after) || Date.now() - p.time > 60000;
+      if (!done) {
+        keep.push({ ...p, line });
+        continue;
+      }
+      const s = sentenceAround(text, p.link, p.display);
+      if (s) await this.addExample(p.notePath, s, p.sourcePath).catch((e) => console.error("[goi-y-tieng-anh]", e));
+    }
+    this.pending = keep;
+  }
+
+  // Thêm câu vào "## Ví dụ" (kèm nguồn) và thẻ điền chỗ trống vào "## Thẻ ôn"
+  async addExample(notePath, s, sourcePath) {
+    const file = this.app.vault.getAbstractFileByPath(notePath);
+    if (!(file instanceof TFile)) return;
+    const source = sourcePath ? ` ([[${sourcePath.replace(/\.md$/, "").split("/").pop()}]])` : "";
+    const cfg = this.folderFor(file.path);
+    await this.app.vault.process(file, (t) => {
+      if (t.includes(s.bold)) return t;
+      let out = addToSection(t, EX_HEADING, `- ${s.bold}${source}`);
+      if (this.settings.clozeCards && cfg?.tag && !out.includes(s.cloze)) out = insertCards(out, [s.cloze]);
+      return out;
+    });
+    new Notice(`Đã lưu câu ví dụ vào "${file.basename}"`);
+  }
+
+  // Cụm từ đi kèm: dòng trong "## Cụm từ", thẻ ôn, và cum_tu để popup gợi ý được cụm
+  async addPhrase(term, phrase, meaning, example) {
+    let entry = this.getIndex().find((e) => normalize(e.term) === normalize(term));
+    if (!entry) throw new Error(`Chưa có ghi chú cho "${term}"`);
+    let file = entry.dict ? await this.createFromDict(entry) : this.app.vault.getAbstractFileByPath(entry.path);
+    if (!(file instanceof TFile)) throw new Error(`Không mở được ghi chú "${term}"`);
+    const cfg = this.folderFor(file.path);
+    await this.app.vault.process(file, (t) => {
+      let out = addToSection(t, PHRASE_HEADING, `- **${phrase}** — ${meaning}`);
+      const cards = [];
+      if (this.settings.phraseCards && cfg?.tag && meaning) cards.push(`**${phrase}**:::${meaning}`);
+      if (example) {
+        const cloze = clozeOf(example, [phrase]);
+        const bold = cloze ? cloze.replace(/==([^=]+)==/, "**$1**") : example;
+        out = addToSection(out, EX_HEADING, `- ${bold}`);
+        if (this.settings.clozeCards && cfg?.tag && cloze) cards.push(cloze);
+      }
+      const fresh = cards.filter((c) => !hasCard(out, c));
+      return fresh.length ? insertCards(out, fresh) : out;
+    });
+    await this.app.fileManager.processFrontMatter(file, (fm) => {
+      const all = list(fm.cum_tu);
+      if (!all.some((c) => normalize(c) === normalize(phrase))) all.push(phrase);
+      fm.cum_tu = all;
+    });
+    this.index = null;
+    new Notice(`Đã thêm cụm "${phrase}" vào "${file.basename}"`);
+    return file;
+  }
+
   async saveSettings() {
     await this.saveData(this.settings);
   }
 };
 
-// Dòng thẻ theo cú pháp của plugin Spaced Repetition (":::" = thẻ hai chiều)
+// Dòng thẻ theo cú pháp của plugin Spaced Repetition (":::" = thẻ hai chiều, ==…== = điền chỗ trống)
 const CARD_HEADING = "## Thẻ ôn";
+const EX_HEADING = "## Ví dụ";
+const PHRASE_HEADING = "## Cụm từ";
+
+// Nội dung một mục "## …" (đến mục tiếp theo), không gồm dòng tiêu đề
+function sectionBody(text, heading) {
+  const m = new RegExp(`^${escapeRe(heading)}[ \\t]*$`, "m").exec(text);
+  if (!m) return "";
+  const rest = text.slice(m.index + m[0].length);
+  const next = rest.search(/^## /m);
+  return next >= 0 ? rest.slice(0, next) : rest;
+}
+
+// Thêm một dòng "- …" vào mục: thay dòng "- " trống nếu có, chưa có mục thì tạo trước Thẻ ôn / Ghi chú
+function addToSection(text, heading, line) {
+  const m = new RegExp(`^${escapeRe(heading)}[ \\t]*$`, "m").exec(text);
+  if (!m) {
+    const block = `${heading}\n${line}\n\n`;
+    const at = [CARD_HEADING, "## Ghi chú"]
+      .map((h) => text.search(new RegExp(`^${escapeRe(h)}`, "m")))
+      .find((i) => i >= 0);
+    return at !== undefined ? text.slice(0, at) + block + text.slice(at) : text.replace(/\s*$/, `\n\n${block}`);
+  }
+  const start = m.index + m[0].length;
+  const next = text.slice(start).search(/^## /m);
+  const end = next >= 0 ? start + next : text.length;
+  const lines = text.slice(start, end).replace(/^\n+|\s+$/g, "").split("\n").filter((l, i, a) => l || a.length > 1);
+  const empty = lines.findIndex((l) => /^-\s*$/.test(l));
+  if (empty >= 0) lines[empty] = line;
+  else lines.push(line);
+  const body = "\n" + lines.filter((l) => l !== "").join("\n") + "\n\n";
+  return text.slice(0, start) + body + text.slice(end).replace(/^\n+/, "");
+}
+
+// Thẻ đã có chưa: thẻ hỏi-đáp so theo "câu hỏi::" (sửa đáp án không sinh thẻ trùng),
+// thẻ điền chỗ trống so cả câu. Không so phần chữ đậm vì nó cũng nằm trong dòng Ví dụ / Cụm từ.
+function hasCard(text, card) {
+  const m = card.match(/^(.*?)(:::?)/);
+  return m ? text.includes(m[1] + "::") : text.includes(card);
+}
+
+// Thêm các dòng thẻ ngay dưới "## Thẻ ôn" (mỗi thẻ một đoạn), chưa có mục thì tạo
+function insertCards(t, cards) {
+  const lines = cards.map((l) => `${l}\n\n`).join("");
+  const h = t.indexOf(CARD_HEADING);
+  if (h >= 0) {
+    const at = h + CARD_HEADING.length;
+    return t.slice(0, at) + "\n\n" + lines.trimEnd() + t.slice(at);
+  }
+  const block = `${CARD_HEADING}\n\n${lines}`;
+  const i = t.indexOf("## Ghi chú");
+  return i >= 0 ? t.slice(0, i) + block + t.slice(i) : t.replace(/\s*$/, `\n\n${block}`);
+}
+
+// Từ gốc + mọi biến thể (go, goes, went…), dài trước để "looked up" thắng "look"
+function wordForms(term, loai, extra = []) {
+  return [term, ...inflect(term, loai, extra).map((f) => f.text)].sort((a, b) => b.length - a.length);
+}
+
+// "- I **went** home. — Tôi về nhà. ([[nháp]])" -> "I ==went== home. — Tôi về nhà."
+function clozeOf(line, forms) {
+  let s = line
+    .replace(/^\s*[-*+]\s+/, "")
+    .replace(/\s*\(\[\[[^\]]*\]\]\)\s*$/, "")
+    .trim();
+  if (!s || /==[^=]+==/.test(s)) return /==[^=]+==/.test(s) ? s : null;
+  const bold = s.match(/\*\*([^*]+)\*\*/);
+  if (bold && forms.some((f) => normalize(f) === normalize(bold[1]))) return s.replace(bold[0], `==${bold[1]}==`);
+  s = s.replace(/\*\*([^*]+)\*\*/g, "$1");
+  for (const f of forms) {
+    const re = new RegExp(`(^|[^A-Za-z])(${escapeRe(f)})(?=[^A-Za-z]|$)`, "i");
+    if (re.test(s)) return s.replace(re, "$1==$2==");
+  }
+  return null;
+}
+
+function clozeCardsFrom(sectionText, forms) {
+  return sectionText
+    .split("\n")
+    .filter((l) => /^\s*[-*+]\s+\S/.test(l))
+    .map((l) => clozeOf(l, forms))
+    .filter((c) => c && c.split(/\s+/).length >= 3);
+}
+
+// "- **sustain growth** — duy trì tăng trưởng" -> "**sustain growth**:::duy trì tăng trưởng"
+function phraseCardsFrom(sectionText) {
+  return sectionText
+    .split("\n")
+    .map((l) => l.match(/^\s*[-*+]\s+(?:\*\*)?([^*—–]+?)(?:\*\*)?\s+[—–-]\s+(.+)$/))
+    .filter(Boolean)
+    .map((m) => `**${m[1].trim()}**:::${m[2].trim()}`);
+}
+
+// Câu chứa link trong một dòng -> { bold: "… **went** …", cloze: "… ==went== …" }, hoặc null nếu quá ngắn
+function sentenceAround(lineText, link, display) {
+  const TOKEN = "\u0000";
+  let s = lineText.replace(/^\s*(?:[-*+]\s+(?:\[.\]\s+)?|\d+\.\s+|#+\s+|>\s*)+/, "");
+  const at = s.indexOf(link);
+  if (at < 0) return null;
+  s = s.slice(0, at) + TOKEN + s.slice(at + link.length);
+  const sentences = s.match(/[^.!?]+[.!?]*/g) || [s];
+  let sentence = (sentences.find((x) => x.includes(TOKEN)) || "").trim();
+  sentence = sentence
+    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2")
+    .replace(/\[\[([^\]]+)\]\]/g, "$1")
+    .replace(/(\*\*|__|`|==)/g, "")
+    .trim();
+  // Cần ngữ cảnh tiếng Anh thật: ít nhất 3 từ tiếng Anh ngoài từ đang học
+  if ((sentence.replace(TOKEN, "").match(/[A-Za-z]{2,}/g) || []).length < 3) return null;
+  return { bold: sentence.replace(TOKEN, `**${display}**`), cloze: sentence.replace(TOKEN, `==${display}==`) };
+}
 
 function cleanPath(v) {
   return v.trim().replace(/^\/+|\/+$/g, "");
+}
+
+function escapeRe(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // Con trỏ đang trong frontmatter, khối code ``` / ~~~ hoặc công thức $$ -> không gợi ý
