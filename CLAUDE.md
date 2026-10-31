@@ -1,4 +1,4 @@
-# CLAUDE.md — Gợi ý tiếng Anh (Obsidian plugin)
+# CLAUDE.md — A00 (Obsidian plugin, trước đây tên "Gợi ý tiếng Anh", id goi-y-tieng-anh)
 
 Tài liệu cho AI/lập trình viên tiếp quản plugin. Người dùng nói tiếng Việt; trả lời và viết UI bằng tiếng Việt.
 
@@ -19,7 +19,7 @@ Kèm: thẻ ôn cho plugin Spaced Repetition, dòng "Biến thể" dưới tiêu
 |---|---|
 | `main.js` | **Toàn bộ code**, JavaScript CommonJS thuần, không bundler, không npm. Cuối file là `DICT_DATA` sinh tự động. |
 | `styles.css` | Style popup (`.gyta-*`), dòng biến thể, ô cài đặt. Dùng biến CSS của Obsidian. |
-| `manifest.json` | `id: goi-y-tieng-anh`. Tăng `version` mỗi lần phát hành. |
+| `manifest.json` | `id: a00`. Tăng `version` mỗi lần phát hành. |
 | `versions.json` | version → minAppVersion. Thêm dòng mỗi lần phát hành. |
 | `dict/*.txt` | Nguồn từ điển: `từ|phiên âm Mỹ (không có /)|từ loại|nghĩa`. `#` là chú thích. Từ trùng: giữ dòng đầu. |
 | `build.ps1` | Nhúng `dict/*.txt` vào `main.js` giữa `// @@DICT_START` và `// @@DICT_END`. Báo dòng sai định dạng / trùng / ký tự cấm (`` ` `` `\` `${`). |
@@ -61,12 +61,12 @@ Kèm: thẻ ôn cho plugin Spaced Repetition, dòng "Biến thể" dưới tiêu
 
 ## Quy trình sửa & phát hành
 
-> ⚠️ **Không sửa trực tiếp trong vault.** Vault nằm trong iCloud Drive (Windows); iCloud hay đổi tên file đang ghi liên tục thành `main 2.js`, `x(1).md` → plugin hỏng. Sửa ở repo này (`C:\Users\dovan\Projects\obsidian-goi-y-tieng-anh`), xong mới chép một lần.
+> ⚠️ **Không sửa trực tiếp trong vault.** Vault nằm trong iCloud Drive (Windows); iCloud hay đổi tên file đang ghi liên tục thành `main 2.js`, `x(1).md` → plugin hỏng. Sửa ở repo này (`C:\Users\dovan\Projects\obsidian-a00`), xong mới chép một lần.
 
 1. Sửa `main.js` / `styles.css` / `dict/*.txt` trong repo.
 2. Nếu đổi `dict/`: `./build.ps1` (PowerShell 5.1; file lưu UTF-8 **có BOM** để in tiếng Việt đúng).
-3. Chép vào vault: `main.js`, `styles.css`, `manifest.json` → `<vault>/.obsidian/plugins/goi-y-tieng-anh/`. Vault: `C:\Users\dovan\iCloudDrive\iCloud~md~obsidian\T1026`.
-4. Tải lại: `obsidian plugin:reload id=goi-y-tieng-anh` (Obsidian CLI, cần app đang mở).
+3. Chép vào vault: `main.js`, `styles.css`, `manifest.json` → `<vault>/.obsidian/plugins/a00/`. Vault: `C:\Users\dovan\iCloudDrive\iCloud~md~obsidian\T1026`.
+4. Tải lại: `obsidian plugin:reload id=a00` (Obsidian CLI, cần app đang mở).
 5. Phát hành: tăng `version` (`manifest.json`) + thêm vào `versions.json`, commit (kèm dòng `Co-Authored-By` nếu là AI), `git push`, rồi
    `gh release create <version> main.js manifest.json styles.css --title <version> --notes "..."`.
    **BRAT chỉ tải đúng 3 file đó** — dữ liệu khác phải nằm trong `main.js`.
@@ -77,7 +77,7 @@ Kèm: thẻ ôn cho plugin Spaced Repetition, dòng "Biến thể" dưới tiêu
 Dùng Obsidian CLI từ PowerShell trong thư mục vault:
 
 - `obsidian eval code="..."` chạy JS trong Obsidian, trả về kết quả. Viết script vào file rồi gộp một dòng; **tránh `//` chú thích và dấu `"`** trong script (bị cắt khi truyền qua PowerShell).
-- Lấy suggest: `app.workspace.editorSuggest.suggests.find(x => x.plugin === app.plugins.plugins['goi-y-tieng-anh'])`, gọi `onTrigger({line:0,ch:n}, {getLine:()=>text})` rồi `getSuggestions()`.
+- Lấy suggest: `app.workspace.editorSuggest.suggests.find(x => x.plugin === app.plugins.plugins['a00'])`, gọi `onTrigger({line:0,ch:n}, {getLine:()=>text})` rồi `getSuggestions()`.
 - Chọn thật: đặt `s.context = {editor, start, end, query, file}` rồi `s.selectSuggestion(item)`.
 - Gõ phím thật: `obsidian dev:cdp method=Input.insertText 'params={\"text\":\"u\"}'` (không có dấu cách trong text).
 - `obsidian dev:screenshot path=...`, `obsidian dev:errors`, `obsidian dev:dom selector=... text`.
@@ -90,4 +90,4 @@ Dùng Obsidian CLI từ PowerShell trong thư mục vault:
 - Không ghi thêm vào file của người dùng khi không cần (mỗi lần ghi = một lần iCloud đồng bộ). Thứ chỉ để xem (biến thể) thì vẽ DOM.
 - Không ghi đè dòng thẻ ôn đã có (mất lịch ôn của Spaced Repetition).
 - Từ điển: nghĩa ngắn gọn 1–3 nghĩa chính, phiên âm Mỹ. Từ hai cách đọc gộp một dòng: `close|kloʊz, kloʊs|động từ, tính từ|đóng; gần`.
-- Liên quan: plugin **Giữ tên file iCloud** (`obsidian-icloud-giu-ten`) xử lý việc iCloud đổi tên file; ghi chú hướng dẫn người dùng nằm ở `Tiếng Anh/HD Plugin (Hướng dẫn Gợi ý tiếng Anh).md` trong vault.
+- Liên quan: plugin **Giữ tên file iCloud** (`obsidian-icloud-giu-ten`) xử lý việc iCloud đổi tên file; ghi chú hướng dẫn người dùng nằm ở `Tiếng Anh/HD A00 (Hướng dẫn).md` trong vault.

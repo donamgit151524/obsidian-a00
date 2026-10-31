@@ -290,7 +290,7 @@ class AddWordModal extends Modal {
     const { contentEl } = this;
     this.setTitle("Thêm từ vựng");
     if (!this.folder) {
-      contentEl.setText("Chưa có thư mục nào được bật. Vào Cài đặt → Gợi ý tiếng Anh để thêm.");
+      contentEl.setText("Chưa có thư mục nào được bật. Vào Cài đặt → A00 để thêm.");
       return;
     }
     if (this.folders.length > 1) {
@@ -722,7 +722,7 @@ class SettingTab extends PluginSettingTab {
 
 // ---------- Plugin ----------
 
-module.exports = class GoiYTiengAnh extends Plugin {
+module.exports = class A00 extends Plugin {
   async onload() {
     const data = (await this.loadData()) || {};
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
@@ -765,7 +765,7 @@ module.exports = class GoiYTiengAnh extends Plugin {
       callback: async () => {
         this.settings.enabled = !this.settings.enabled;
         await this.saveSettings();
-        new Notice(`Gợi ý tiếng Anh: ${this.settings.enabled ? "BẬT" : "TẮT"}`);
+        new Notice(`A00: ${this.settings.enabled ? "BẬT" : "TẮT"}`);
       },
     });
 
@@ -1010,7 +1010,7 @@ module.exports = class GoiYTiengAnh extends Plugin {
       file = await this.app.vault.create(
         path,
         [
-          "Mục lục mọi tiền tố, gốc từ, hậu tố có trong từ vựng của bạn (do plugin Gợi ý tiếng Anh vẽ).",
+          "Mục lục mọi tiền tố, gốc từ, hậu tố có trong từ vựng của bạn (do plugin A00 vẽ).",
           "",
           "Bấm vào một mảnh để mở ghi chú của nó; bấm vào một từ để mở / tạo ghi chú từ.",
           "",
@@ -1383,7 +1383,7 @@ module.exports = class GoiYTiengAnh extends Plugin {
         continue;
       }
       const s = sentenceAround(text, p.link, p.display);
-      if (s) await this.addExample(p.notePath, s, p.sourcePath).catch((e) => console.error("[goi-y-tieng-anh]", e));
+      if (s) await this.addExample(p.notePath, s, p.sourcePath).catch((e) => console.error("[a00]", e));
     }
     this.pending = keep;
   }

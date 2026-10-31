@@ -1,4 +1,4 @@
-# Gợi ý tiếng Anh (Obsidian plugin)
+# A00 — học từ vựng tiếng Anh trong Obsidian
 
 Gõ một từ, popup hiện các từ/cụm từ có trong thư mục từ vựng của bạn (kèm phiên âm, từ loại, nghĩa). Chọn một từ thì chữ đang gõ được thay bằng wikilink, ví dụ `[[hello]]` hoặc `[[look up]]`. Mỗi từ có thể tự sinh thẻ ôn cho plugin Spaced Repetition.
 
@@ -7,7 +7,7 @@ Gõ một từ, popup hiện các từ/cụm từ có trong thư mục từ vự
 1. Cài plugin **BRAT** (Obsidian42 - BRAT) trong Community plugins.
 2. Ctrl+P → **BRAT: Add a beta plugin for testing**.
 3. Dán đường dẫn repo này, chọn phiên bản mới nhất → **Add plugin**.
-4. Bật **Gợi ý tiếng Anh** trong Settings → Community plugins.
+4. Bật **A00** trong Settings → Community plugins.
 
 Cập nhật: Ctrl+P → **BRAT: Check for updates to all beta plugins**.
 
