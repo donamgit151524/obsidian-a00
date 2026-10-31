@@ -1,0 +1,106 @@
+# Bổ sung: đời thường
+aunt|ænt|danh từ|cô, dì, bác gái
+bee|biː|danh từ|con ong
+bucket|ˈbʌkɪt|danh từ|cái xô
+cabbage|ˈkæbɪdʒ|danh từ|bắp cải
+calendar|ˈkælɪndər|danh từ|lịch
+chin|tʃɪn|danh từ|cằm
+cloth|klɔːθ|danh từ|vải
+cloudy|ˈklaʊdi|tính từ|nhiều mây
+coconut|ˈkoʊkənʌt|danh từ|quả dừa
+comb|koʊm|danh từ|cái lược
+crab|kræb|danh từ|con cua
+cucumber|ˈkjuːkʌmbər|danh từ|dưa chuột
+deer|dɪr|danh từ|con hươu
+dolphin|ˈdɑːlfɪn|danh từ|cá heo
+dragon|ˈdræɡən|danh từ|con rồng
+duck|dʌk|danh từ|con vịt
+eagle|ˈiːɡəl|danh từ|đại bàng
+elbow|ˈelboʊ|danh từ|khuỷu tay
+elevator|ˈelɪveɪtər|danh từ|thang máy
+envelope|ˈenvəloʊp|danh từ|phong bì
+feather|ˈfeðər|danh từ|lông vũ
+flour|ˈflaʊər|danh từ|bột mì
+fog|fɑːɡ|danh từ|sương mù
+fox|fɑːks|danh từ|con cáo
+frog|frɔːɡ|danh từ|con ếch
+garlic|ˈɡɑːrlɪk|danh từ|tỏi
+goat|ɡoʊt|danh từ|con dê
+grape|ɡreɪp|danh từ|quả nho
+greet|ɡriːt|động từ|chào hỏi
+hammer|ˈhæmər|danh từ|cái búa
+hug|hʌɡ|động từ, danh từ|ôm; cái ôm
+jar|dʒɑːr|danh từ|cái lọ
+kettle|ˈketəl|danh từ|ấm đun nước
+kite|kaɪt|danh từ|con diều
+ladder|ˈlædər|danh từ|cái thang
+lamp|læmp|danh từ|cái đèn
+lion|ˈlaɪən|danh từ|sư tử
+luggage|ˈlʌɡɪdʒ|danh từ|hành lý
+mango|ˈmæŋɡoʊ|danh từ|quả xoài
+monkey|ˈmʌŋki|danh từ|con khỉ
+mosquito|məˈskiːtoʊ|danh từ|con muỗi
+nest|nest|danh từ|cái tổ
+nod|nɑːd|động từ|gật đầu
+noodle|ˈnuːdəl|danh từ|mì, bún, phở
+onion|ˈʌnjən|danh từ|hành tây
+owl|aʊl|danh từ|con cú
+peach|piːtʃ|danh từ|quả đào
+pear|per|danh từ|quả lê
+pillow|ˈpɪloʊ|danh từ|cái gối
+pineapple|ˈpaɪnæpəl|danh từ|quả dứa
+pizza|ˈpiːtsə|danh từ|bánh pizza
+pumpkin|ˈpʌmpkɪn|danh từ|quả bí ngô
+rabbit|ˈræbɪt|danh từ|con thỏ
+rainbow|ˈreɪnboʊ|danh từ|cầu vồng
+ruler|ˈruːlər|danh từ|cái thước; người cai trị
+scissors|ˈsɪzərz|danh từ|cái kéo
+scream|skriːm|động từ|hét lên
+shark|ʃɑːrk|danh từ|cá mập
+sheep|ʃiːp|danh từ|con cừu
+shrimp|ʃrɪmp|danh từ|con tôm
+sigh|saɪ|động từ, danh từ|thở dài
+snack|snæk|danh từ|đồ ăn vặt
+sneeze|sniːz|động từ|hắt hơi
+sofa|ˈsoʊfə|danh từ|ghế sô-pha
+souvenir|ˌsuːvəˈnɪr|danh từ|quà lưu niệm
+spider|ˈspaɪdər|danh từ|con nhện
+strawberry|ˈstrɔːberi|danh từ|quả dâu tây
+sweater|ˈswetər|danh từ|áo len
+tiger|ˈtaɪɡər|danh từ|con hổ
+turtle|ˈtɜːrtəl|danh từ|con rùa
+whale|weɪl|danh từ|cá voi
+whisper|ˈwɪspər|động từ|thì thầm
+wolf|wʊlf|danh từ|con sói
+yawn|jɔːn|động từ|ngáp
+# Bổ sung: lập trình, điện tử
+algorithm|ˈælɡərɪðəm|danh từ|thuật toán
+array|əˈreɪ|danh từ|mảng
+binary|ˈbaɪnəri|tính từ, danh từ|nhị phân
+boolean|ˈbuːliən|danh từ, tính từ|kiểu đúng/sai
+buffer|ˈbʌfər|danh từ|bộ đệm
+byte|baɪt|danh từ|byte
+capacitor|kəˈpæsɪtər|danh từ|tụ điện
+circuit|ˈsɜːrkɪt|danh từ|mạch điện
+compile|kəmˈpaɪl|động từ|biên dịch
+compiler|kəmˈpaɪlər|danh từ|trình biên dịch
+configuration|kənˌfɪɡjəˈreɪʃən|danh từ|cấu hình
+configure|kənˈfɪɡjər|động từ|cấu hình
+debug|ˌdiːˈbʌɡ|động từ|gỡ lỗi
+decimal|ˈdesɪməl|tính từ, danh từ|thập phân
+default|dɪˈfɔːlt|danh từ, tính từ|mặc định
+diode|ˈdaɪoʊd|danh từ|đi-ốt
+execute|ˈeksɪkjuːt|động từ|thực thi
+firmware|ˈfɜːrmwer|danh từ|phần sụn, firmware
+integer|ˈɪntɪdʒər|danh từ|số nguyên
+iterate|ˈɪtəreɪt|động từ|lặp
+loop|luːp|danh từ, động từ|vòng lặp; lặp
+microcontroller|ˌmaɪkroʊkənˈtroʊlər|danh từ|vi điều khiển
+oscillator|ˈɑːsɪleɪtər|danh từ|bộ dao động
+packet|ˈpækɪt|danh từ|gói tin
+peripheral|pəˈrɪfərəl|danh từ, tính từ|ngoại vi
+protocol|ˈproʊtəkɑːl|danh từ|giao thức
+pulse|pʌls|danh từ|xung; mạch đập
+query|ˈkwɪri|danh từ, động từ|truy vấn
+syntax|ˈsɪntæks|danh từ|cú pháp
+toggle|ˈtɑːɡəl|động từ, danh từ|bật/tắt luân phiên; công tắc

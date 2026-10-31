@@ -11,6 +11,14 @@ Gõ một từ, popup hiện các từ/cụm từ có trong thư mục từ vự
 
 Cập nhật: Ctrl+P → **BRAT: Check for updates to all beta plugins**.
 
+## Từ điển có sẵn (3.000 từ)
+
+Gõ từ chưa có ghi chú vẫn ra gợi ý (nhãn *từ điển*, kèm phiên âm Mỹ và nghĩa tiếng Việt). Chọn thì chèn link và **tự tạo ghi chú + thẻ ôn** — chỉ từ bạn dùng mới thành ghi chú.
+
+- Từ điển gợi ý khi gõ ≥ 3 chữ, và không gợi ý trên dòng đang có chữ tiếng Việt (tránh nhầm khi gõ Telex: `con`, `the`…).
+- Gồm từ thông dụng A–Z và một nhóm thuật ngữ lập trình/điện tử.
+- Dữ liệu nằm trong `dict/*.txt`, mỗi dòng `từ|phiên âm|từ loại|nghĩa`. Sửa xong chạy `./build.ps1` để nhúng vào `main.js` (BRAT chỉ tải `main.js`, nên dữ liệu phải nằm trong đó).
+
 ## Ghi chú từ vựng
 
 Mỗi từ là một ghi chú, tên file chính là từ đó (`hello.md`, `look up.md`, `GPIO.md`):

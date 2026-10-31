@@ -1,0 +1,136 @@
+face|feɪs|danh từ, động từ|khuôn mặt; đối mặt
+facility|fəˈsɪləti|danh từ|cơ sở vật chất, tiện nghi
+fact|fækt|danh từ|sự thật
+factor|ˈfæktər|danh từ|yếu tố; thừa số
+factory|ˈfæktəri|danh từ|nhà máy
+fail|feɪl|động từ|thất bại; trượt
+failure|ˈfeɪljər|danh từ|sự thất bại; sự cố
+fair|fer|tính từ, danh từ|công bằng; hội chợ
+fairly|ˈferli|trạng từ|khá; công bằng
+faith|feɪθ|danh từ|niềm tin, đức tin
+fall|fɔːl|động từ, danh từ|ngã, rơi; mùa thu
+false|fɔːls|tính từ|sai
+familiar|fəˈmɪljər|tính từ|quen thuộc
+family|ˈfæməli|danh từ|gia đình
+famous|ˈfeɪməs|tính từ|nổi tiếng
+fan|fæn|danh từ|người hâm mộ; cái quạt
+fancy|ˈfænsi|tính từ, động từ|sang trọng; thích
+fantastic|fænˈtæstɪk|tính từ|tuyệt vời
+far|fɑːr|trạng từ, tính từ|xa
+fare|fer|danh từ|giá vé
+farm|fɑːrm|danh từ|nông trại
+farmer|ˈfɑːrmər|danh từ|nông dân
+fashion|ˈfæʃən|danh từ|thời trang
+fast|fæst|tính từ, trạng từ|nhanh
+fat|fæt|tính từ, danh từ|béo; chất béo
+father|ˈfɑːðər|danh từ|bố, cha
+fault|fɔːlt|danh từ|lỗi
+favor|ˈfeɪvər|danh từ|ân huệ, sự giúp đỡ
+favorite|ˈfeɪvərɪt|tính từ|yêu thích
+fear|fɪr|danh từ, động từ|nỗi sợ; sợ
+feature|ˈfiːtʃər|danh từ, động từ|đặc điểm, tính năng; có điểm nổi bật
+fee|fiː|danh từ|phí
+feed|fiːd|động từ|cho ăn
+feedback|ˈfiːdbæk|danh từ|phản hồi
+feel|fiːl|động từ|cảm thấy
+feeling|ˈfiːlɪŋ|danh từ|cảm giác, cảm xúc
+fellow|ˈfeloʊ|danh từ|bạn, đồng chí
+female|ˈfiːmeɪl|tính từ, danh từ|nữ, giống cái
+fence|fens|danh từ|hàng rào
+festival|ˈfestɪvəl|danh từ|lễ hội
+fever|ˈfiːvər|danh từ|cơn sốt
+few|fjuː|từ hạn định|ít, vài
+field|fiːld|danh từ|cánh đồng; lĩnh vực; trường (dữ liệu)
+fight|faɪt|động từ, danh từ|đánh nhau, chiến đấu; trận đánh
+figure|ˈfɪɡjər|danh từ, động từ|con số; hình dáng; nhân vật; hiểu ra
+file|faɪl|danh từ|tập tin, hồ sơ
+fill|fɪl|động từ|làm đầy, điền
+film|fɪlm|danh từ|bộ phim
+final|ˈfaɪnəl|tính từ, danh từ|cuối cùng; trận chung kết
+finally|ˈfaɪnəli|trạng từ|cuối cùng
+finance|ˈfaɪnæns|danh từ|tài chính
+financial|faɪˈnænʃəl|tính từ|thuộc tài chính
+find|faɪnd|động từ|tìm thấy
+finding|ˈfaɪndɪŋ|danh từ|phát hiện, kết quả nghiên cứu
+fine|faɪn|tính từ, danh từ|tốt, ổn; tiền phạt
+finger|ˈfɪŋɡər|danh từ|ngón tay
+finish|ˈfɪnɪʃ|động từ|hoàn thành, kết thúc
+fire|faɪər|danh từ, động từ|lửa; sa thải; bắn
+firm|fɜːrm|danh từ, tính từ|công ty; chắc chắn
+first|fɜːrst|số từ, trạng từ|thứ nhất; đầu tiên
+firstly|ˈfɜːrstli|trạng từ|thứ nhất là
+fish|fɪʃ|danh từ, động từ|con cá; câu cá
+fit|fɪt|động từ, tính từ|vừa; khỏe mạnh
+fitness|ˈfɪtnəs|danh từ|sự khỏe mạnh, thể hình
+fix|fɪks|động từ|sửa chữa; cố định
+fixed|fɪkst|tính từ|cố định
+flag|flæɡ|danh từ|lá cờ
+flame|fleɪm|danh từ|ngọn lửa
+flash|flæʃ|danh từ, động từ|tia sáng; bộ nhớ flash; lóe sáng
+flat|flæt|tính từ, danh từ|phẳng; căn hộ
+flavor|ˈfleɪvər|danh từ|hương vị
+flexible|ˈfleksəbəl|tính từ|linh hoạt
+flight|flaɪt|danh từ|chuyến bay
+float|floʊt|động từ, danh từ|nổi; số thực (float)
+flood|flʌd|danh từ, động từ|lũ lụt; tràn ngập
+floor|flɔːr|danh từ|sàn nhà; tầng
+flow|floʊ|danh từ, động từ|dòng chảy; chảy
+flower|ˈflaʊər|danh từ|bông hoa
+flu|fluː|danh từ|bệnh cúm
+fly|flaɪ|động từ, danh từ|bay; con ruồi
+focus|ˈfoʊkəs|động từ, danh từ|tập trung; tiêu điểm
+fold|foʊld|động từ|gấp
+folk|foʊk|danh từ|người; dân gian
+follow|ˈfɑːloʊ|động từ|theo dõi, đi theo
+following|ˈfɑːloʊɪŋ|tính từ|sau đây, tiếp theo
+food|fuːd|danh từ|thức ăn
+foot|fʊt|danh từ|bàn chân; foot (đơn vị đo)
+football|ˈfʊtbɔːl|danh từ|bóng đá
+for|fɔːr|giới từ|cho; trong (khoảng thời gian)
+force|fɔːrs|danh từ, động từ|lực; lực lượng; ép buộc
+forecast|ˈfɔːrkæst|danh từ, động từ|dự báo
+foreign|ˈfɔːrən|tính từ|nước ngoài
+forest|ˈfɔːrɪst|danh từ|rừng
+forever|fərˈevər|trạng từ|mãi mãi
+forget|fərˈɡet|động từ|quên
+forgive|fərˈɡɪv|động từ|tha thứ
+fork|fɔːrk|danh từ|cái nĩa
+form|fɔːrm|danh từ, động từ|hình thức; mẫu đơn; hình thành
+formal|ˈfɔːrməl|tính từ|trang trọng, chính thức
+format|ˈfɔːrmæt|danh từ, động từ|định dạng
+former|ˈfɔːrmər|tính từ|trước đây, cựu
+formula|ˈfɔːrmjələ|danh từ|công thức
+fortunately|ˈfɔːrtʃənətli|trạng từ|may mắn thay
+fortune|ˈfɔːrtʃən|danh từ|tài sản lớn; vận may
+forward|ˈfɔːrwərd|trạng từ, động từ|về phía trước; chuyển tiếp
+found|faʊnd|động từ|thành lập
+foundation|faʊnˈdeɪʃən|danh từ|nền móng; quỹ
+frame|freɪm|danh từ|khung
+free|friː|tính từ|tự do; miễn phí; rảnh
+freedom|ˈfriːdəm|danh từ|sự tự do
+freeze|friːz|động từ|đóng băng; đơ (máy)
+frequency|ˈfriːkwənsi|danh từ|tần số
+frequent|ˈfriːkwənt|tính từ|thường xuyên
+frequently|ˈfriːkwəntli|trạng từ|thường xuyên
+fresh|freʃ|tính từ|tươi
+fridge|frɪdʒ|danh từ|tủ lạnh
+friend|frend|danh từ|bạn bè
+friendly|ˈfrendli|tính từ|thân thiện
+friendship|ˈfrendʃɪp|danh từ|tình bạn
+frightened|ˈfraɪtənd|tính từ|sợ hãi
+from|frʌm|giới từ|từ
+front|frʌnt|danh từ|phía trước
+fruit|fruːt|danh từ|trái cây
+frustrated|ˈfrʌstreɪtɪd|tính từ|bực bội, nản
+fry|fraɪ|động từ|chiên, rán
+fuel|ˈfjuːəl|danh từ|nhiên liệu
+full|fʊl|tính từ|đầy; no
+fully|ˈfʊli|trạng từ|đầy đủ, hoàn toàn
+fun|fʌn|danh từ, tính từ|niềm vui; vui
+function|ˈfʌŋkʃən|danh từ, động từ|chức năng; hàm; hoạt động
+fund|fʌnd|danh từ, động từ|quỹ; tài trợ
+fundamental|ˌfʌndəˈmentəl|tính từ|cơ bản, nền tảng
+funny|ˈfʌni|tính từ|buồn cười
+furniture|ˈfɜːrnɪtʃər|danh từ|đồ nội thất
+further|ˈfɜːrðər|trạng từ, tính từ|xa hơn; thêm nữa
+future|ˈfjuːtʃər|danh từ|tương lai

@@ -45,6 +45,12 @@
   flex: 1 1 180px;
 }
 
+.gyta-dict {
+  padding: 0 6px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--background-modifier-border);
+}
+
 .gyta-forms {
   display: flex;
   flex-wrap: wrap;
