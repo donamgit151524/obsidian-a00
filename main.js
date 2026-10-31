@@ -720,8 +720,8 @@ function setUserIrregular(text) {
   userNouns = new Map();
   const bad = [];
   (text || "").split("\n").forEach((raw, i) => {
-    const line = raw.trim();
-    if (!line || line.startsWith("#")) return;
+    const line = raw.replace(/#.*/, "").trim(); // "# ..." là chú thích, kể cả cuối dòng
+    if (!line) return;
     const p = line.toLowerCase().split(/\s+/);
     if (p.length === 3) userTriples.set(p[0], { a: p[1].split("/"), b: p[2].split("/") });
     else if (p.length === 2) userNouns.set(p[0], p[1].split("/"));
