@@ -1482,7 +1482,8 @@ function clozeOf(line, forms) {
   if (bold && forms.some((f) => normalize(f) === normalize(bold[1]))) return s.replace(bold[0], `==${bold[1]}==`);
   s = s.replace(/\*\*([^*]+)\*\*/g, "$1");
   for (const f of forms) {
-    const re = new RegExp(`(^|[^A-Za-z])(${escapeRe(f)})(?=[^A-Za-z]|$)`, "i");
+    // Chữ số và "_" cũng là một phần của từ: GPIO không khớp trong GPIO_Output
+    const re = new RegExp(`(^|[^A-Za-z0-9_])(${escapeRe(f)})(?=[^A-Za-z0-9_]|$)`, "i");
     if (re.test(s)) return s.replace(re, "$1==$2==");
   }
   return null;
