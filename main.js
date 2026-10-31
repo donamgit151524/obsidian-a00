@@ -28,6 +28,10 @@ const DEFAULT_SETTINGS = {
   dictEnabled: true,
   dictFolder: "Tiếng Anh/Từ vựng",
   dictMinChars: 3,
+  // Gốc từ: dòng "Phân tích" tô màu, khung "Họ từ", ghi chú cho từng tiền tố / gốc / hậu tố
+  showMorph: true,
+  morphFolder: "Tiếng Anh/Gốc từ",
+  morphCards: true,
 };
 const DEFAULT_FOLDER = { path: "Tiếng Anh/Từ vựng", tag: "flashcards/tieng-anh", enabled: true };
 
@@ -159,6 +163,10 @@ class WordSuggest extends EditorSuggest {
     }
     const meaning = [key.isForm ? `${key.label} của ${entry.term}` : "", entry.nghia].filter(Boolean).join(" · ");
     if (meaning) el.createDiv({ cls: "gyta-meaning", text: meaning });
+    if (this.plugin.settings.showMorph) {
+      const parts = (!entry.dict && this.plugin.partsOf(entry)) || analyze(entry.term);
+      if (parts && parts.length > 1) el.createDiv({ cls: "gyta-pop-parts", text: formatParts(parts) });
+    }
   }
 
   selectSuggestion(item) {
@@ -190,7 +198,15 @@ class AddWordModal extends Modal {
     this.plugin = plugin;
     // Có trong từ điển thì điền sẵn phiên âm, từ loại, nghĩa
     const d = dictLookup(term);
-    this.data = { term, ipa: d?.ipa || "", loai: d?.loai || "", nghia: d?.nghia || "", vidu: "" };
+    const parts = analyze(term);
+    this.data = {
+      term,
+      ipa: d?.ipa || "",
+      loai: d?.loai || "",
+      nghia: d?.nghia || "",
+      phan_tich: parts && parts.length > 1 ? formatParts(parts) : "",
+      vidu: "",
+    };
     this.folders = plugin.activeFolders();
     this.folder = this.folders[0];
     this.onDone = onDone;
@@ -223,6 +239,7 @@ class AddWordModal extends Modal {
     field("Phiên âm", "ipa", "/həˈloʊ/");
     field("Từ loại", "loai", "danh từ, động từ, thán từ…");
     field("Nghĩa", "nghia", "xin chào");
+    field("Phân tích", "phan_tich", "in- + spir + e  (tiền tố-  gốc  -hậu tố, để trống nếu không cần)");
     field("Ví dụ", "vidu", "Hello, how are you? — Chào bạn, bạn khỏe không?", true);
 
     new Setting(contentEl).addButton((b) =>
@@ -395,6 +412,30 @@ class SettingTab extends PluginSettingTab {
           .onChange((v) => update(() => (p.settings.dictMinChars = v)))
       );
 
+    new Setting(containerEl)
+      .setName("Gốc từ (tiền tố, gốc, hậu tố)")
+      .setDesc(
+        "Ghi chú từ vựng hiện dòng Phân tích tô màu (in- + spir + e) và các từ cùng gốc. " +
+          "Bấm vào một mảnh để mở ghi chú của mảnh đó, trong đó có khung Họ từ."
+      )
+      .setHeading();
+    new Setting(containerEl).setName("Hiện phân tích và họ từ").addToggle((t) =>
+      t.setValue(p.settings.showMorph).onChange((v) => update(() => (p.settings.showMorph = v)))
+    );
+    new Setting(containerEl)
+      .setName("Thư mục ghi chú gốc từ")
+      .setDesc("Nơi tạo ghi chú con-.md, spir.md, -ation.md khi bấm vào một mảnh.")
+      .addText((t) => {
+        t.setValue(p.settings.morphFolder);
+        const setPath = (v) => update(() => (p.settings.morphFolder = cleanPath(v)));
+        t.onChange(setPath);
+        new FolderSuggest(this.app, t.inputEl, setPath);
+      });
+    new Setting(containerEl)
+      .setName("Thẻ ôn gốc từ và tách từ")
+      .setDesc("Thẻ **spir** (gốc từ)::thở… cho ghi chú gốc từ, và **inspire** (tách từ)::in- (vào trong) + spir (thở) + e khi lưu cách tách.")
+      .addToggle((t) => t.setValue(p.settings.morphCards).onChange((v) => update(() => (p.settings.morphCards = v))));
+
     new Setting(containerEl).setName("Bảng bất quy tắc bổ sung").setHeading();
     const status = (r) =>
       `Đang dùng ${r.count} dòng.` + (r.bad.length ? ` Bỏ qua dòng ${r.bad.join(", ")} (phải có 2 hoặc 3 từ).` : "");
@@ -473,11 +514,11 @@ module.exports = class GoiYTiengAnh extends Plugin {
     this.registerEvent(ws.on("layout-change", () => this.refreshForms()));
     this.registerEvent(
       this.app.metadataCache.on("changed", (f) => {
-        if (this.inFolder(f.path)) setTimeout(() => this.refreshForms(), 0);
+        if (this.inFolder(f.path) || this.inMorphFolder(f.path)) setTimeout(() => this.refreshForms(), 0);
       })
     );
     ws.onLayoutReady(() => this.refreshForms());
-    this.register(() => document.querySelectorAll(".gyta-forms").forEach((e) => e.remove()));
+    this.register(() => document.querySelectorAll(".gyta-deco").forEach((e) => e.remove()));
 
     this.addCommand({
       id: "toggle",
@@ -524,32 +565,255 @@ module.exports = class GoiYTiengAnh extends Plugin {
     });
   }
 
+  // Phần hiển thị dưới tiêu đề (không ghi file): Biến thể, Phân tích, Cùng gốc; ghi chú gốc từ thì Họ từ
   refreshForms() {
     for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
       const view = leaf.view;
-      view.containerEl.querySelectorAll(".gyta-forms").forEach((e) => e.remove());
+      view.containerEl.querySelectorAll(".gyta-deco").forEach((e) => e.remove());
       const file = view.file;
-      if (!this.settings.showForms || !file || !this.inFolder(file.path)) continue;
-      const entry = this.getIndex().find((e) => e.path === file.path);
-      const forms = entry ? entry.keys.filter((k) => k.isForm) : [];
-      if (!forms.length) continue;
+      if (!file) continue;
+      const build = this.inFolder(file.path)
+        ? () => this.buildWordDeco(file)
+        : this.settings.showMorph && this.inMorphFolder(file.path)
+          ? () => this.buildMorphDeco(file)
+          : null;
+      if (!build) continue;
 
       // Đặt ngay dưới tiêu đề, ở cả chế độ soạn thảo lẫn chế độ đọc
       let anchors = [...view.containerEl.querySelectorAll(".inline-title")];
       const after = anchors.length > 0;
       if (!after) anchors = [...view.containerEl.querySelectorAll(".cm-sizer, .markdown-preview-sizer")];
       for (const anchor of anchors) {
-        const box = createDiv({ cls: "gyta-forms" });
-        box.createSpan({ cls: "gyta-forms-title", text: "Biến thể" });
-        for (const f of forms) {
-          const chip = box.createSpan({ cls: "gyta-form", attr: { "aria-label": f.label } });
-          chip.createSpan({ text: f.text });
-          chip.createSpan({ cls: "gyta-form-label", text: f.label });
-        }
+        const box = build();
+        if (!box) break;
         if (after) anchor.after(box);
         else anchor.prepend(box);
       }
     }
+  }
+
+  buildWordDeco(file) {
+    const entry = this.getIndex().find((e) => e.path === file.path);
+    if (!entry) return null;
+    const box = createDiv({ cls: "gyta-deco" });
+
+    const forms = entry.keys.filter((k) => k.isForm);
+    if (this.settings.showForms && forms.length) {
+      const row = box.createDiv({ cls: "gyta-forms" });
+      row.createSpan({ cls: "gyta-forms-title", text: "Biến thể" });
+      for (const f of forms) {
+        const chip = row.createSpan({ cls: "gyta-form", attr: { "aria-label": f.label } });
+        chip.createSpan({ text: f.text });
+        chip.createSpan({ cls: "gyta-form-label", text: f.label });
+      }
+    }
+
+    if (this.settings.showMorph) {
+      const saved = this.partsOf(entry);
+      const parts = saved || analyze(entry.term);
+      if (parts) {
+        if (saved || parts.length > 1) {
+          const row = box.createDiv({ cls: "gyta-forms gyta-morph" + (saved ? "" : " is-suggested") });
+          row.createSpan({ cls: "gyta-forms-title", text: saved ? "Phân tích" : "Đề xuất tách" });
+          parts.forEach((p, i) => {
+            if (i) row.createSpan({ cls: "gyta-plus", text: "+" });
+            this.renderPart(row, p, file.path);
+          });
+          if (!saved) {
+            const btn = row.createEl("button", { cls: "gyta-use", text: "Dùng cách tách này" });
+            btn.onclick = () => this.setPhanTich(file, formatParts(parts));
+          }
+        }
+
+        // Các từ khác cùng gốc
+        const seen = new Set([normalize(entry.term)]);
+        const family = [];
+        for (const r of parts.filter((p) => p.kind === "root")) {
+          for (const e of this.family(r)) {
+            if (seen.has(normalize(e.term))) continue;
+            seen.add(normalize(e.term));
+            family.push(e);
+          }
+        }
+        if (family.length) {
+          const fam = box.createDiv({ cls: "gyta-forms" });
+          fam.createSpan({ cls: "gyta-forms-title", text: "Cùng gốc" });
+          for (const e of family.slice(0, 12)) this.renderWordChip(fam, e, file.path);
+          if (family.length > 12) fam.createSpan({ cls: "gyta-forms-title", text: `+${family.length - 12}` });
+        }
+      }
+    }
+    return box.childElementCount ? box : null;
+  }
+
+  buildMorphDeco(file) {
+    const part = this.morphPartOf(file);
+    const fm = this.app.metadataCache.getFileCache(file)?.frontmatter || {};
+    const meaning = str(fm.nghia) || MORPH[part.kind]?.get(part.key)?.meaning || "";
+    const box = createDiv({ cls: "gyta-deco gyta-family" });
+    const head = box.createDiv({ cls: "gyta-forms" });
+    const chip = head.createSpan({ cls: `gyta-part is-${part.kind}` });
+    chip.createSpan({ text: morphNoteName(part.kind, part.key) });
+    head.createSpan({ cls: "gyta-forms-title", text: `${MORPH_LABEL[part.kind]} · ${meaning}` });
+
+    const family = this.family(part);
+    const groups = new Map();
+    for (const e of family) {
+      const t = (e.loai || "").toLowerCase();
+      const g = ["động từ", "danh từ", "tính từ", "trạng từ"].find((x) => t.includes(x)) || "khác";
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(e);
+    }
+    const title = box.createDiv({ cls: "gyta-family-title", text: `Họ từ (${family.length})` });
+    if (!family.length) title.setText("Họ từ: chưa tìm thấy từ nào có mảnh này.");
+    for (const g of ["động từ", "danh từ", "tính từ", "trạng từ", "khác"]) {
+      const list = groups.get(g);
+      if (!list) continue;
+      const row = box.createDiv({ cls: "gyta-forms" });
+      row.createSpan({ cls: "gyta-forms-title", text: g });
+      for (const e of list.slice(0, 60)) this.renderWordChip(row, e, file.path);
+      if (list.length > 60) row.createSpan({ cls: "gyta-forms-title", text: `+${list.length - 60}` });
+    }
+    return box;
+  }
+
+  // Mảnh tô màu: tiền tố đỏ, gốc xanh, hậu tố cam, từ xanh lá; bấm để mở ghi chú của mảnh
+  renderPart(row, p, sourcePath) {
+    const chip = row.createSpan({ cls: `gyta-part is-${p.kind}` });
+    chip.createSpan({ text: p.kind === "prefix" ? `${p.text}-` : p.kind === "suffix" ? `-${p.text}` : p.text });
+    const m = this.partMeaning(p);
+    if (m) chip.createSpan({ cls: "gyta-part-meaning", text: m });
+    if (p.kind === "link") return;
+    chip.addClass("is-clickable");
+    chip.onclick = () => this.openPart(p, sourcePath).catch((e) => new Notice(e.message));
+  }
+
+  renderWordChip(row, e, sourcePath) {
+    const chip = row.createSpan({ cls: "gyta-form gyta-word" + (e.dict ? " is-dict" : ""), attr: { "aria-label": e.nghia } });
+    chip.createSpan({ text: e.term });
+    chip.onclick = () => this.openWord(e, sourcePath).catch((err) => new Notice(err.message));
+  }
+
+  partsOf(entry) {
+    if (entry.dict) return null;
+    if (entry._parts === undefined) entry._parts = parseParts(entry.phanTich);
+    return entry._parts;
+  }
+
+  // Mọi từ (ghi chú + từ điển) có mảnh này; ghi chú chưa xác nhận cách tách thì dùng đề xuất
+  family(part) {
+    return this.getIndex().filter((e) => {
+      const parts = this.partsOf(e) || analyze(e.term);
+      return parts && parts.some((p) => samePart(p, part));
+    });
+  }
+
+  partMeaning(p) {
+    if (p.kind === "link") return "";
+    if (p.kind === "word") return this.getIndex().find((e) => normalize(e.term) === normalize(p.text))?.nghia || "";
+    const file = this.morphFile(p);
+    const fm = file && this.app.metadataCache.getFileCache(file)?.frontmatter;
+    return str(fm?.nghia) || MORPH[p.kind]?.get(p.text.toLowerCase())?.meaning || "";
+  }
+
+  inMorphFolder(path) {
+    const f = normalizePath(this.settings.morphFolder || "");
+    return !!f && !!path && path.startsWith(f + "/");
+  }
+
+  morphFile(p) {
+    const path = normalizePath(`${this.settings.morphFolder}/${morphNoteName(p.kind, p.key || p.text)}.md`);
+    const f = this.app.vault.getAbstractFileByPath(path);
+    return f instanceof TFile ? f : null;
+  }
+
+  // Ghi chú trong thư mục gốc từ -> mảnh tương ứng ("con-" tiền tố, "-ation" hậu tố, còn lại gốc)
+  morphPartOf(file) {
+    const name = file.basename;
+    const loai = str(this.app.metadataCache.getFileCache(file)?.frontmatter?.loai).toLowerCase();
+    const kind =
+      name.endsWith("-") || loai.includes("tiền tố")
+        ? "prefix"
+        : name.startsWith("-") || loai.includes("hậu tố")
+          ? "suffix"
+          : "root";
+    const key = name.replace(/^-+|-+$/g, "");
+    return { kind, text: key, key: MORPH[kind].get(key.toLowerCase())?.key || key };
+  }
+
+  morphTag() {
+    const cfg = this.activeFolders().find((f) => f.path === this.settings.dictFolder) || this.activeFolders()[0];
+    return cfg?.tag || "";
+  }
+
+  async ensureMorphNote(p) {
+    const existing = this.morphFile(p);
+    if (existing) return existing;
+    const folder = normalizePath(this.settings.morphFolder);
+    if (!this.app.vault.getAbstractFileByPath(folder)) await this.app.vault.createFolder(folder);
+    const name = morphNoteName(p.kind, p.key || p.text);
+    const meaning = MORPH[p.kind]?.get((p.key || p.text).toLowerCase())?.meaning || "";
+    const variants = [...MORPH[p.kind].entries()].filter(([f, v]) => v.key === p.key && f !== p.key).map(([f]) => f);
+    const tag = this.morphTag();
+    const withCard = !!(tag && meaning && this.settings.morphCards);
+    const q = (v) => JSON.stringify(v);
+    const content = [
+      "---",
+      `loai: ${q(MORPH_LABEL[p.kind])}`,
+      `nghia: ${q(meaning)}`,
+      `bien_the: [${variants.join(", ")}]`,
+      `tags: [goc-tu${withCard ? ", " + tag : ""}]`,
+      "---",
+      "",
+      "> Họ từ (các từ có mảnh này) được plugin hiện tự động ở đầu ghi chú.",
+      "",
+      ...(withCard ? [CARD_HEADING, "", `**${name}** (${MORPH_LABEL[p.kind]})::${meaning}`, ""] : []),
+      "## Ghi chú",
+      "",
+    ].join("\n");
+    return this.app.vault.create(normalizePath(`${folder}/${name}.md`), content);
+  }
+
+  async openPart(p, sourcePath) {
+    if (p.kind === "word") {
+      const e = this.getIndex().find((x) => normalize(x.term) === normalize(p.text));
+      if (e) return this.openWord(e, sourcePath);
+      return;
+    }
+    const file = await this.ensureMorphNote(p);
+    await this.app.workspace.getLeaf(false).openFile(file);
+  }
+
+  async openWord(e, sourcePath) {
+    if (e.dict) {
+      const file = await this.createFromDict(e);
+      return this.app.workspace.getLeaf(false).openFile(file);
+    }
+    return this.app.workspace.openLinkText(e.term, sourcePath);
+  }
+
+  // Xác nhận cách tách: ghi phan_tich + thẻ "tách từ"
+  async setPhanTich(file, text) {
+    await this.app.fileManager.processFrontMatter(file, (fm) => {
+      fm.phan_tich = text;
+    });
+    this.index = null;
+    if (this.settings.morphCards) await this.addMissingCards([file], { phan_tich: text, quiet: true });
+    new Notice(`Đã lưu cách tách: ${text}`);
+  }
+
+  // **inspire** (tách từ)::in- (vào trong) + spir (thở, thổi hơi) + e
+  morphCard(term, parts) {
+    if (!parts || parts.length < 2) return null;
+    const desc = parts
+      .map((p) => {
+        if (p.kind === "link") return p.text;
+        const t = p.kind === "prefix" ? `${p.text}-` : p.kind === "suffix" ? `-${p.text}` : p.text;
+        const m = this.partMeaning(p);
+        return m ? `${t} (${m})` : t;
+      })
+      .join(" + ");
+    return `**${term}** (tách từ)::${desc}`;
   }
 
   activeFolders() {
@@ -588,6 +852,7 @@ module.exports = class GoiYTiengAnh extends Plugin {
           ipa: str(fm.ipa),
           loai: str(fm.loai),
           nghia: str(fm.nghia),
+          phanTich: str(fm.phan_tich),
           keys: [
             { text: file.basename, norm: normalize(file.basename), isAlias: false },
             ...aliases.map((a) => ({ text: a, norm: normalize(a), isAlias: true })),
@@ -612,7 +877,7 @@ module.exports = class GoiYTiengAnh extends Plugin {
     return this.createWordNote({ term: entry.term, ipa: entry.ipa, loai: entry.loai, nghia: entry.nghia, vidu: "" }, cfg);
   }
 
-  async createWordNote({ term, ipa, loai, nghia, vidu }, cfg = this.activeFolders()[0]) {
+  async createWordNote({ term, ipa, loai, nghia, vidu, phan_tich }, cfg = this.activeFolders()[0]) {
     if (!cfg) throw new Error("Chưa có thư mục từ vựng nào được bật");
     const folder = normalizePath(cfg.path);
     const withCard = !!(cfg.tag && nghia.trim());
@@ -639,13 +904,25 @@ module.exports = class GoiYTiengAnh extends Plugin {
       `nghia: ${q(nghia)}`,
       "aliases: []",
       "bien_the: []",
+      ...((phan_tich || "").trim() ? [`phan_tich: ${q(phan_tich)}`] : []),
       `tags: [tu-vung${withCard ? ", " + cfg.tag : ""}]`,
       "---",
       "",
       "## Ví dụ",
       examples || "- ",
       "",
-      ...(withCard ? [CARD_HEADING, "", ...cardLines({ term, ipa, loai, nghia }).flatMap((l) => [l, ""])] : []),
+      ...(withCard
+        ? [
+            CARD_HEADING,
+            "",
+            ...[
+              ...cardLines({ term, ipa, loai, nghia }),
+              this.settings.morphCards ? this.morphCard(term, parseParts(phan_tich)) : null,
+            ]
+              .filter(Boolean)
+              .flatMap((l) => [l, ""]),
+          ]
+        : []),
       "## Ghi chú",
       "",
     ].join("\n");
@@ -656,19 +933,22 @@ module.exports = class GoiYTiengAnh extends Plugin {
   }
 
   // Thêm thẻ ôn cho các ghi chú từ vựng chưa có (ví dụ ghi chú tự viết tay)
-  async addMissingCards() {
+  // files: chỉ xét các file này; over: giá trị frontmatter vừa ghi (metadataCache chưa kịp cập nhật)
+  async addMissingCards(files = this.app.vault.getMarkdownFiles(), over = {}) {
     let added = 0;
-    for (const file of this.app.vault.getMarkdownFiles()) {
+    for (const file of files) {
       const cfg = this.folderFor(file.path);
       if (!cfg || !cfg.tag) continue;
-      const fm = this.app.metadataCache.getFileCache(file)?.frontmatter || {};
+      const fm = { ...(this.app.metadataCache.getFileCache(file)?.frontmatter || {}), ...over };
       if (!str(fm.nghia).trim()) continue;
       const text = await this.app.vault.read(file);
       // Chỉ thêm những dòng thẻ chưa có (so theo phần câu hỏi), giữ nguyên lịch ôn của thẻ cũ
       const data = { term: file.basename, ipa: str(fm.ipa), loai: str(fm.loai), nghia: str(fm.nghia) };
-      const wanted = text.includes(CARD_HEADING)
-        ? [fm.khong_chia === true ? null : irregularCard(data.term, data.loai)] // đã có thẻ chính
-        : [cardLine(data), fm.khong_chia === true ? null : irregularCard(data.term, data.loai)];
+      const extra = [
+        fm.khong_chia === true ? null : irregularCard(data.term, data.loai),
+        this.settings.morphCards && fm.phan_tich ? this.morphCard(data.term, parseParts(fm.phan_tich)) : null,
+      ];
+      const wanted = text.includes(CARD_HEADING) ? extra : [cardLine(data), ...extra]; // đã có thẻ chính thì thôi
       const missing = wanted.filter((l) => l && !text.includes(l.split(/:::?/)[0]));
       if (!missing.length) continue;
 
@@ -690,7 +970,7 @@ module.exports = class GoiYTiengAnh extends Plugin {
       });
       added++;
     }
-    new Notice(`Đã thêm thẻ ôn cho ${added} từ`);
+    if (!over.quiet) new Notice(`Đã thêm thẻ ôn cho ${added} từ`);
     return added;
   }
 
@@ -896,6 +1176,306 @@ function irregularCard(term, loai) {
   const v2 = irr.v2.map((f) => f + tail).join("/");
   const v3 = irr.v3.map((f) => f + tail).join("/");
   return `**${term}** (V2 – V3)::${v2} – ${v3}`;
+}
+
+// ---------- Gốc từ, tiền tố, hậu tố ----------
+
+// Mỗi dòng: loại|các dạng (dạng đầu là tên chính)|nghĩa. p = tiền tố, s = hậu tố, r = gốc từ
+const MORPH_DATA = `
+p|a|không, thiếu; hướng tới
+p|ab/abs|rời xa
+p|ad/ac/af/ag/al/ap/ar/as/at|hướng tới, thêm vào
+p|anti|chống lại
+p|auto|tự
+p|bi|hai
+p|con/com/co/col/cor|cùng nhau
+p|contra/counter|ngược lại
+p|de|xuống; tách ra, bỏ đi
+p|dis/di/dif|không; tách rời
+p|ex/e/ef|ra ngoài
+p|en/em|làm cho; vào trong
+p|extra|ngoài, vượt
+p|fore|trước
+p|in/im/il/ir|vào trong; không
+p|inter|giữa
+p|intro/intra|vào trong
+p|micro|nhỏ
+p|mis|sai
+p|mono|một
+p|multi|nhiều
+p|non|không
+p|ob/oc/of/op|chống; về phía
+p|out|vượt hơn; ra ngoài
+p|over|quá; ở trên
+p|per|xuyên qua; trọn vẹn
+p|post|sau
+p|pre|trước
+p|pro|về phía trước; ủng hộ
+p|re|lại; trở lại
+p|se|tách riêng
+p|semi|một nửa
+p|sub/suc/suf/sup/sus|dưới
+p|super/sur|trên, vượt
+p|sym/syn|cùng nhau
+p|tele|xa
+p|trans|xuyên qua, chuyển
+p|tri|ba
+p|un|không; ngược lại
+p|under|dưới, chưa đủ
+p|uni|một
+s|able/ible|có thể (tính từ)
+s|acy/cy|danh từ: trạng thái, hành vi
+s|al/ial/ual|thuộc về (tính từ, danh từ)
+s|ance/ence/ancy/ency|danh từ: tình trạng
+s|ant/ent|người/vật làm; có tính
+s|ary/ery/ory|nơi chốn; liên quan đến
+s|ate|làm cho (động từ)
+s|ation/ition/tion/sion/ion|danh từ: hành động, quá trình
+s|ator/er/or|người/vật làm
+s|atory|liên quan đến (tính từ)
+s|dom|lĩnh vực, trạng thái
+s|en|làm cho (động từ)
+s|ful|đầy
+s|genic|tạo ra, gây ra
+s|hood|thời kỳ, trạng thái
+s|ic/ical|thuộc về (tính từ)
+s|ify/fy|làm cho (động từ)
+s|ism|chủ nghĩa, hệ thống
+s|ist|người theo, người làm
+s|ity/ty|tính chất (danh từ)
+s|ive|có tính (tính từ)
+s|ize/ise|làm cho (động từ)
+s|less|không có
+s|logy|môn học
+s|ly|một cách (trạng từ)
+s|ment|kết quả, hành động (danh từ)
+s|ness|tính chất (danh từ)
+s|ous/ious/eous|có, đầy (tính từ)
+s|ship|trạng thái, quan hệ
+s|ure|hành động, kết quả (danh từ)
+s|ward|hướng về
+s|y|danh từ; tính từ
+r|act/ag|làm, hành động
+r|anim|sự sống, tâm hồn
+r|aud|nghe
+r|bio|sự sống
+r|capt/cap/cept/ceiv/cip|lấy, nắm
+r|cess/ceed/ced|đi, nhường
+r|chron|thời gian
+r|cis/cid|cắt; giết
+r|claim/clam|kêu, la
+r|clud/clus|đóng
+r|cogn|biết
+r|cord|tim, lòng
+r|corp|cơ thể
+r|cred|tin
+r|curs/curr/cur|chạy
+r|dict/dic|nói
+r|doc|dạy
+r|duct/duc|dẫn
+r|equ|bằng nhau
+r|fect/fact/fac/fic|làm
+r|fer|mang
+r|fid|tin tưởng
+r|fin|kết thúc, giới hạn
+r|flect/flex|uốn cong
+r|flu/flux|chảy
+r|form|hình dạng
+r|fract/frag|vỡ
+r|gen|sinh ra, loài
+r|geo|đất
+r|gress/grad|bước
+r|graph/gram|viết, vẽ
+r|hydr|nước
+r|ject|ném
+r|jud|phán xét
+r|junct|nối
+r|lect/leg|chọn; đọc
+r|loc|nơi chốn
+r|log|lời nói; lý lẽ
+r|lum/luc|ánh sáng
+r|manu/man|tay
+r|mand|ra lệnh
+r|mem|nhớ
+r|ment|tâm trí
+r|meter/metr|đo
+r|min|nhỏ
+r|miss/mit|gửi
+r|mov/mot/mob|di chuyển
+r|mort|chết
+r|nat|sinh ra
+r|nov|mới
+r|path/pathet|cảm xúc, đau khổ; bệnh
+r|ped/pod|chân
+r|puls/pel|đẩy
+r|pend/pens|treo; cân
+r|phon|âm thanh
+r|photo|ánh sáng
+r|plic/ply|gấp
+r|pos/pon/pound|đặt
+r|port|mang
+r|press|ép
+r|prim|đầu tiên
+r|prov/prob|thử, chứng minh
+r|quest/quir/quis|hỏi, tìm
+r|rupt|vỡ, đứt
+r|scop|nhìn
+r|script/scrib|viết
+r|sect/sec|cắt
+r|sens/sent|cảm thấy
+r|sequ/secu|theo sau
+r|sign|dấu hiệu
+r|stat/sist/stit/sta|đứng
+r|solv/solu|nới lỏng, giải
+r|spect/spec/spic|nhìn
+r|spir/spirit/pir|thở, thổi hơi; tinh thần
+r|struct|xây dựng
+r|tact/tang|chạm
+r|tain/ten/tin|giữ
+r|temp|thời gian
+r|tend/tens/tent|kéo căng; hướng tới
+r|terr|đất
+r|therm|nhiệt
+r|tract|kéo
+r|trib|cho, ban
+r|vac/van|trống rỗng
+r|val/vail|mạnh; giá trị
+r|vent/ven|đến
+r|vers/vert|quay
+r|vis/vid|nhìn
+r|viv/vit|sống
+r|voc/vok|gọi, giọng nói`;
+
+const MORPH_KIND = { p: "prefix", s: "suffix", r: "root" };
+const MORPH_LABEL = { prefix: "tiền tố", suffix: "hậu tố", root: "gốc từ", word: "từ", link: "" };
+
+// form -> { kind, key, meaning }; key = dạng chính (con, ation, spir)
+const MORPH = { prefix: new Map(), suffix: new Map(), root: new Map() };
+const MORPH_FORMS = { prefix: [], suffix: [], root: [] };
+for (const line of MORPH_DATA.split("\n")) {
+  const [k, forms, meaning] = line.split("|");
+  if (!meaning) continue;
+  const kind = MORPH_KIND[k];
+  const list = forms.split("/");
+  for (const form of list) {
+    if (!MORPH[kind].has(form)) MORPH[kind].set(form, { kind, key: list[0], meaning });
+    MORPH_FORMS[kind].push(form);
+  }
+}
+for (const kind in MORPH_FORMS) MORPH_FORMS[kind].sort((a, b) => b.length - a.length);
+
+// Tên ghi chú của một mảnh: "con-", "-ation", "spir"
+function morphNoteName(kind, key) {
+  return kind === "prefix" ? `${key}-` : kind === "suffix" ? `-${key}` : key;
+}
+
+function prefixChain(s, depth = 0) {
+  if (s === "") return [];
+  if (depth > 1) return null;
+  for (const form of MORPH_FORMS.prefix) {
+    if (!s.startsWith(form)) continue;
+    const rest = prefixChain(s.slice(form.length), depth + 1);
+    if (rest) return [{ kind: "prefix", text: form, key: MORPH.prefix.get(form).key }, ...rest];
+  }
+  return null;
+}
+
+// Phần sau gốc từ: chuỗi hậu tố, cho phép một nguyên âm nối ("inspir-e", "spir-a-…")
+function suffixChain(s, depth = 0) {
+  if (s === "") return { parts: [], leftover: 0 };
+  if (depth > 3) return null;
+  let best = null;
+  for (const form of MORPH_FORMS.suffix) {
+    if (!s.startsWith(form)) continue;
+    const r = suffixChain(s.slice(form.length), depth + 1);
+    if (!r) continue;
+    const c = { parts: [{ kind: "suffix", text: form, key: MORPH.suffix.get(form).key }, ...r.parts], leftover: r.leftover };
+    if (!best || c.leftover < best.leftover || (c.leftover === best.leftover && c.parts.length < best.parts.length)) best = c;
+  }
+  if (!best && depth === 0 && /^[aeiou]/.test(s)) {
+    if (s.length === 1) return { parts: [{ kind: "link", text: s }], leftover: 1 };
+    const r = suffixChain(s.slice(1), depth + 1);
+    if (r) best = { parts: [{ kind: "link", text: s[0] }, ...r.parts], leftover: r.leftover + 1 };
+  }
+  return best;
+}
+
+const analyzeCache = new Map();
+// Trông giống nhưng không phải (empire ≠ em + pir + e; path = đường đi ≠ gốc path = cảm xúc)
+const NO_SPLIT = new Set(["empire", "vampire", "umpire", "satire", "inch", "pension", "path"]);
+
+// Đề xuất cách tách: tiền tố + gốc + hậu tố. Chỉ trả kết quả khi thấy gốc từ trong bảng,
+// hoặc tiền tố + từ có thật (un + happy), hoặc từ có thật + hậu tố (spirit + ual).
+function analyze(term) {
+  const w = (term || "").toLowerCase();
+  if (analyzeCache.has(w)) return analyzeCache.get(w);
+  let result = null;
+  if (/^[a-z]{4,}$/.test(w) && !NO_SPLIT.has(w)) {
+    let best = null;
+    for (const form of MORPH_FORMS.root) {
+      for (let i = w.indexOf(form); i >= 0; i = w.indexOf(form, i + 1)) {
+        const pre = prefixChain(w.slice(0, i));
+        const suf = pre && suffixChain(w.slice(i + form.length));
+        if (!suf) continue;
+        const parts = [...pre, { kind: "root", text: form, key: MORPH.root.get(form).key }, ...suf.parts];
+        // Cả từ chính là gốc (spirit, port): vẫn tính vào họ từ, nhưng không hiện dòng tách 1 mảnh
+        const score = form.length * 10 - suf.leftover * 3 - parts.length;
+        if (!best || score > best.score) best = { score, parts };
+      }
+    }
+    if (best) result = best.parts;
+    if (!result) {
+      const isWord = (x) => x.length >= 3 && dictLookup(x);
+      for (let i = 2; i < w.length - 2 && !result; i++) {
+        const pre = prefixChain(w.slice(0, i));
+        if (pre && isWord(w.slice(i))) result = [...pre, { kind: "word", text: w.slice(i) }];
+      }
+      for (let i = w.length - 2; i >= 3 && !result; i--) {
+        const suf = suffixChain(w.slice(i));
+        if (suf && !suf.leftover && suf.parts.length && isWord(w.slice(0, i))) {
+          result = [{ kind: "word", text: w.slice(0, i) }, ...suf.parts];
+        }
+      }
+    }
+  }
+  analyzeCache.set(w, result);
+  return result;
+}
+
+// Chuỗi trong ghi chú: "in- + spir + e", "con- + spir + -acy", "un- + happy"
+function formatParts(parts) {
+  return parts
+    .map((p) => (p.kind === "prefix" ? `${p.text}-` : p.kind === "suffix" ? `-${p.text}` : p.text))
+    .join(" + ");
+}
+
+function parseParts(text) {
+  if (!text) return null;
+  const parts = String(text)
+    .split("+")
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .map((t) => {
+      if (t.endsWith("-") && t.length > 1) {
+        const text = t.slice(0, -1);
+        return { kind: "prefix", text, key: MORPH.prefix.get(text.toLowerCase())?.key || text };
+      }
+      if (t.startsWith("-") && t.length > 1) {
+        const text = t.slice(1);
+        return { kind: "suffix", text, key: MORPH.suffix.get(text.toLowerCase())?.key || text };
+      }
+      const root = MORPH.root.get(t.toLowerCase());
+      if (root) return { kind: "root", text: t, key: root.key };
+      if (t.length <= 2) return { kind: "link", text: t };
+      if (dictLookup(t)) return { kind: "word", text: t };
+      return { kind: "root", text: t, key: t };
+    });
+  return parts.length ? parts : null;
+}
+
+// Hai mảnh cùng loại, cùng tên chính -> cùng họ
+function samePart(a, b) {
+  return a.kind === b.kind && a.kind !== "link" && (a.key || a.text).toLowerCase() === (b.key || b.text).toLowerCase();
 }
 
 // ---------- Từ điển có sẵn ----------
@@ -3951,5 +4531,40 @@ protocol|ˈproʊtəkɑːl|danh từ|giao thức
 pulse|pʌls|danh từ|xung; mạch đập
 query|ˈkwɪri|danh từ, động từ|truy vấn
 syntax|ˈsɪntæks|danh từ|cú pháp
-toggle|ˈtɑːɡəl|động từ, danh từ|bật/tắt luân phiên; công tắc`;
+toggle|ˈtɑːɡəl|động từ, danh từ|bật/tắt luân phiên; công tắc
+inspiration|ˌɪnspəˈreɪʃən|danh từ|nguồn cảm hứng
+inspirational|ˌɪnspəˈreɪʃənəl|tính từ|truyền cảm hứng
+aspire|əˈspaɪər|động từ|khao khát, mong mỏi
+aspiration|ˌæspəˈreɪʃən|danh từ|khát vọng, hoài bão
+conspire|kənˈspaɪər|động từ|âm mưu, cùng mưu tính
+conspiracy|kənˈspɪrəsi|danh từ|âm mưu
+conspirator|kənˈspɪrətər|danh từ|kẻ chủ mưu, người tham gia âm mưu
+expire|ɪkˈspaɪər|động từ|hết hạn
+expiration|ˌekspəˈreɪʃən|danh từ|sự hết hạn
+respire|rɪˈspaɪər|động từ|hô hấp, thở
+respiration|ˌrespəˈreɪʃən|danh từ|sự hô hấp
+respiratory|ˈrespərətɔːri|tính từ|thuộc hô hấp
+perspire|pərˈspaɪər|động từ|đổ mồ hôi
+perspiration|ˌpɜːrspəˈreɪʃən|danh từ|mồ hôi; sự đổ mồ hôi
+transpire|trænˈspaɪər|động từ|hóa ra, lộ ra; xảy ra
+spiritual|ˈspɪrɪtʃuəl|tính từ|thuộc tinh thần, tâm linh
+spiritually|ˈspɪrɪtʃuəli|trạng từ|về mặt tinh thần
+dispirit|dɪˈspɪrɪt|động từ|làm nản lòng
+apathy|ˈæpəθi|danh từ|sự thờ ơ
+antipathy|ænˈtɪpəθi|danh từ|sự ác cảm
+empathy|ˈempəθi|danh từ|sự thấu cảm
+telepathy|təˈlepəθi|danh từ|thần giao cách cảm
+pathetic|pəˈθetɪk|tính từ|đáng thương; thảm hại
+pathology|pəˈθɑːlədʒi|danh từ|bệnh lý học
+sympathetic|ˌsɪmpəˈθetɪk|tính từ|thông cảm
+disrupt|dɪsˈrʌpt|động từ|gây xáo trộn, làm gián đoạn
+disruption|dɪsˈrʌpʃən|danh từ|sự gián đoạn
+bankrupt|ˈbæŋkrʌpt|tính từ|phá sản
+rupture|ˈrʌptʃər|danh từ, động từ|sự vỡ, rách; làm vỡ
+abrupt|əˈbrʌpt|tính từ|đột ngột
+corrupt|kəˈrʌpt|tính từ, động từ|tham nhũng, hư hỏng; làm hư hỏng
+corruption|kəˈrʌpʃən|danh từ|sự tham nhũng
+erupt|ɪˈrʌpt|động từ|phun trào, bùng phát
+eruption|ɪˈrʌpʃən|danh từ|sự phun trào
+interruption|ˌɪntəˈrʌpʃən|danh từ|sự gián đoạn`;
 // @@DICT_END

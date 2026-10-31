@@ -101,3 +101,100 @@
   color: var(--text-normal);
   font-size: var(--font-ui-small);
 }
+
+/* Gốc từ: tiền tố đỏ, gốc xanh dương, hậu tố cam, từ xanh lá */
+.gyta-deco {
+  margin: 4px 0 12px;
+}
+
+.gyta-deco .gyta-forms {
+  margin: 4px 0 8px;
+}
+
+.gyta-pop-parts {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  font-family: var(--font-monospace);
+}
+
+.gyta-part {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-s);
+  font-weight: 600;
+  line-height: 1.2;
+  border: 1px solid transparent;
+}
+
+.gyta-part-meaning {
+  font-weight: 400;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.gyta-part.is-prefix {
+  color: var(--color-red);
+  background: rgba(var(--color-red-rgb), 0.1);
+}
+
+.gyta-part.is-root {
+  color: var(--color-blue);
+  background: rgba(var(--color-blue-rgb), 0.1);
+}
+
+.gyta-part.is-suffix {
+  color: var(--color-orange);
+  background: rgba(var(--color-orange-rgb), 0.1);
+}
+
+.gyta-part.is-word {
+  color: var(--color-green);
+  background: rgba(var(--color-green-rgb), 0.1);
+}
+
+.gyta-part.is-link {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+.gyta-part.is-clickable,
+.gyta-word {
+  cursor: pointer;
+}
+
+.gyta-part.is-clickable:hover {
+  border-color: currentColor;
+}
+
+.gyta-plus {
+  color: var(--text-faint);
+}
+
+.gyta-morph.is-suggested .gyta-part {
+  opacity: 0.75;
+  border-style: dashed;
+  border-color: var(--background-modifier-border);
+}
+
+.gyta-use {
+  font-size: var(--font-ui-smaller);
+  padding: 2px 8px;
+  height: auto;
+}
+
+.gyta-word:hover {
+  background: var(--background-modifier-active-hover);
+}
+
+.gyta-word.is-dict {
+  background: transparent;
+  border: 1px dashed var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+.gyta-family-title {
+  font-weight: 600;
+  margin: 8px 0 2px;
+}

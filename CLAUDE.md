@@ -44,13 +44,15 @@ Kèm: thẻ ôn cho plugin Spaced Repetition, dòng "Biến thể" dưới tiêu
    - `addMissingCards()`: thêm dòng thẻ còn thiếu (không nhân đôi thẻ chính, giữ lịch ôn).
 7. **Thẻ ôn**: `cardLine` → `**term** /ipa/:::nghĩa (loại)` (`:::` = thẻ hai chiều của Spaced Repetition); `irregularCard` → `**go** (V2 – V3)::went – gone`.
 8. **Biến thể**: `IRREGULAR_VERBS` (~150 động từ), `IRREGULAR_NOUNS`, `IRREGULAR_ADJ`, bảng người dùng (`userTriples`, `userNouns` từ `setUserIrregular`). Quy tắc: `thirdPerson`, `pastRegular`, `ing`, `plural`, `comparatives`, `doubles` (gấp đôi phụ âm chỉ khi 1 âm tiết CVC), `syllables` (bỏ `e` câm). `inflect(term, loai, extra)` chọn theo `loai` chứa "động từ" (trừ "khuyết thiếu"), "danh từ", "tính từ"; cụm động từ chia từ đầu.
-9. **Từ điển**: `dictEntries()` parse `DICT_DATA` lười, cache `dictCache` (đặt `null` khi bảng bất quy tắc đổi); `dictLookup(term)`.
-10. **`DICT_DATA`**: chuỗi sinh bởi `build.ps1` — **không sửa tay**.
+9. **Gốc từ**: `MORPH_DATA` (`p|s|r` | các dạng, dạng đầu là tên chính | nghĩa) → `MORPH[kind]` (form → `{kind,key,meaning}`), `MORPH_FORMS` (dài trước). `analyze(term)` thử từng gốc trong từ: phần trước phải là chuỗi tiền tố (`prefixChain`), phần sau là chuỗi hậu tố có thể kèm 1 nguyên âm nối (`suffixChain`); không có gốc thì thử tiền tố + từ trong từ điển, hoặc từ + hậu tố. `NO_SPLIT` chặn từ trông giống (empire, path). `formatParts` / `parseParts` chuyển qua lại chuỗi `"in- + spir + e"`; `samePart` so họ. Trong plugin: `buildWordDeco` (Biến thể / Phân tích / Cùng gốc), `buildMorphDeco` (Họ từ trong ghi chú gốc), `family(part)`, `ensureMorphNote`, `setPhanTich` (nút "Dùng cách tách này"), `morphCard`. Ghi chú mảnh: `morphFolder/` tên `con-`, `-ation`, `spir`.
+10. **Từ điển**: `dictEntries()` parse `DICT_DATA` lười, cache `dictCache` (đặt `null` khi bảng bất quy tắc đổi); `dictLookup(term)`. `dict/17-ho-tu.txt` bổ sung các họ từ (spir, path, rupt) để khung Họ từ đủ thành viên.
+11. **`DICT_DATA`**: chuỗi sinh bởi `build.ps1` — **không sửa tay**.
 
 ## Dữ liệu trong vault của người dùng
 
 - Ghi chú từ vựng: một file / từ, tên file = từ (`go.md`, `look up.md`). Frontmatter:
-  `ipa` (có `/…/`), `loai`, `nghia`, `aliases`, `bien_the` (thêm dạng), `khong_chia: true` (tắt tự sinh, chỉ dùng `bien_the`), `tags: [tu-vung, flashcards/…]`.
+  `ipa` (có `/…/`), `loai`, `nghia`, `aliases`, `bien_the` (thêm dạng), `khong_chia: true` (tắt tự sinh, chỉ dùng `bien_the`), `phan_tich: "in- + spir + e"`, `tags: [tu-vung, flashcards/…]`.
+- Ghi chú gốc từ: `Tiếng Anh/Gốc từ/` (`spir.md`, `con-.md`, `-ation.md`), frontmatter `loai` (tiền tố/gốc từ/hậu tố), `nghia`, `bien_the`, `tags: [goc-tu, …]`.
 - Thư mục mặc định `Tiếng Anh/Từ vựng` (tag `flashcards/tieng-anh`); có thể thêm `Kiến Thức/STM32 Thuật ngữ` (tag `flashcards/stm32`).
 - Plugin Spaced Repetition của người dùng nhận thẻ qua tag `#flashcards` (bộ con theo tag), `::` một chiều, `:::` hai chiều.
 

@@ -19,6 +19,16 @@ Gõ từ chưa có ghi chú vẫn ra gợi ý (nhãn *từ điển*, kèm phiên
 - Gồm từ thông dụng A–Z và một nhóm thuật ngữ lập trình/điện tử.
 - Dữ liệu nằm trong `dict/*.txt`, mỗi dòng `từ|phiên âm|từ loại|nghĩa`. Sửa xong chạy `./build.ps1` để nhúng vào `main.js` (BRAT chỉ tải `main.js`, nên dữ liệu phải nằm trong đó).
 
+## Gốc từ: tiền tố, gốc, hậu tố
+
+Học theo họ từ (in- + **spir** + e = thổi hơi vào → truyền cảm hứng):
+
+- Ghi chú từ có dòng **Phân tích** tô màu: tiền tố đỏ, gốc xanh, hậu tố cam, kèm nghĩa từng mảnh. Lưu trong `phan_tich: "in- + spir + e"` (tiền tố có `-` phía sau, hậu tố có `-` phía trước).
+- Chưa có `phan_tich` thì hiện **Đề xuất tách** (tự đoán từ bảng ~40 tiền tố, ~35 hậu tố, ~90 gốc Latin/Hy Lạp) và nút **Dùng cách tách này**. Chỉ đề xuất khi thấy gốc từ trong bảng, hoặc tiền tố + từ có thật (un- + happy), hoặc từ + hậu tố (kind + -ness).
+- **Cùng gốc**: các từ khác chung gốc (ghi chú + từ điển).
+- Bấm một mảnh → mở/tạo ghi chú `Tiếng Anh/Gốc từ/spir.md` (`con-.md`, `-ation.md`), trong đó có khung **Họ từ** chia theo động từ / danh từ / tính từ / trạng từ. Từ chưa có ghi chú hiện viền nét đứt, bấm là tạo.
+- Thẻ ôn: `**spir** (gốc từ)::thở, thổi hơi` và `**inspire** (tách từ)::in- (vào trong) + spir (thở) + e`.
+
 ## Ghi chú từ vựng
 
 Mỗi từ là một ghi chú, tên file chính là từ đó (`hello.md`, `look up.md`, `GPIO.md`):
