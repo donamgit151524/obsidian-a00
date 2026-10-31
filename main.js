@@ -24,6 +24,10 @@ const DEFAULT_SETTINGS = {
   minChars: 2,
   maxWords: 4,
   limit: 12,
+  // Gõ trọn từ (trùng hẳn gợi ý đầu): Enter "link" = chèn link, "newline" = xuống dòng
+  enterExact: "link",
+  // Gõ trọn từ rồi dấu cách cũng chèn link
+  spaceAccept: false,
   // Từ điển có sẵn: gợi ý cả từ chưa có ghi chú, chọn thì mới tạo ghi chú trong dictFolder
   dictEnabled: true,
   dictFolder: "Tiếng Anh/Từ vựng",
@@ -53,9 +57,9 @@ class WordSuggest extends EditorSuggest {
   }
 
   // Phím trong popup (scope nội bộ của Obsidian, chạy theo thứ tự đăng ký):
-  // - Tab luôn chọn gợi ý.
-  // - Enter khi chữ đã gõ trùng hẳn gợi ý đầu và chưa bấm ↑↓ -> đóng popup, xuống dòng như thường
-  //   (gõ trọn "programming" rồi Enter không bị biến thành link).
+  // - Enter, Tab chọn gợi ý.
+  // - Cài đặt enterExact = "newline": gõ trọn từ (trùng hẳn gợi ý đầu, chưa bấm ↑↓) thì Enter là xuống dòng.
+  // - Cài đặt spaceAccept: gõ trọn từ rồi dấu cách -> chèn link + dấu cách.
   patchKeys() {
     const keys = this.scope?.keys;
     const enter = keys?.find((k) => k.key === "Enter" && !k.modifiers);
@@ -70,8 +74,18 @@ class WordSuggest extends EditorSuggest {
     }
     const choose = enter.func;
     const tab = this.scope.register([], "Tab", (e, ctx) => choose(e, ctx));
+    const exactTyped = () => !this.navigated && this.lastSuggestions?.[0]?.exact;
+    // Dấu cách: chỉ khi đã gõ trọn từ, để gõ dở "ke" + cách không bị biến thành link
+    const space = (e, ctx) => {
+      if (!this.plugin.settings.spaceAccept || !exactTyped()) return; // để dấu cách đi bình thường
+      const editor = this.context?.editor;
+      choose(e, ctx);
+      editor?.replaceSelection(" ");
+      return false;
+    };
+    const spaceKeys = [this.scope.register([], " ", space), this.scope.register([], "Space", space)];
     const smartEnter = this.scope.register([], "Enter", (e, ctx) => {
-      if (!this.navigated && this.lastSuggestions?.[0]?.exact) {
+      if (this.plugin.settings.enterExact === "newline" && exactTyped()) {
         // CodeMirror đã nhường phím Enter cho popup -> đóng popup rồi gửi lại Enter cho trình soạn thảo
         // (giữ được nối danh sách "- …" của Obsidian)
         const editor = this.context?.editor;
@@ -90,9 +104,10 @@ class WordSuggest extends EditorSuggest {
       }
       return choose(e, ctx);
     });
-    // Đưa hai phím mới lên trước phím Enter mặc định
-    for (const h of [tab, smartEnter]) keys.splice(keys.indexOf(h), 1);
-    keys.unshift(smartEnter, tab);
+    // Đưa các phím mới lên trước phím Enter mặc định
+    const mine = [smartEnter, tab, ...spaceKeys];
+    for (const h of mine) keys.splice(keys.indexOf(h), 1);
+    keys.unshift(...mine);
   }
 
   onTrigger(cursor, editor) {
@@ -420,6 +435,28 @@ class SettingTab extends PluginSettingTab {
       .addToggle((t) =>
         t.setValue(p.settings.above).onChange(async (v) => {
           p.settings.above = v;
+          await p.saveSettings();
+        })
+      );
+    new Setting(containerEl)
+      .setName("Enter khi đã gõ trọn từ")
+      .setDesc("Gõ đủ cả từ (vd. desk) rồi Enter: chèn link, hay xuống dòng như thường? Muốn link khi chọn xuống dòng thì dùng Tab.")
+      .addDropdown((d) =>
+        d
+          .addOption("link", "Chèn link")
+          .addOption("newline", "Xuống dòng")
+          .setValue(p.settings.enterExact)
+          .onChange(async (v) => {
+            p.settings.enterExact = v;
+            await p.saveSettings();
+          })
+      );
+    new Setting(containerEl)
+      .setName("Dấu cách cũng chèn link")
+      .setDesc("Gõ đủ cả từ rồi bấm cách → thành link + dấu cách. Gõ dở (ke + cách) thì vẫn là dấu cách thường.")
+      .addToggle((t) =>
+        t.setValue(p.settings.spaceAccept).onChange(async (v) => {
+          p.settings.spaceAccept = v;
           await p.saveSettings();
         })
       );

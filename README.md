@@ -34,7 +34,7 @@ Học theo họ từ (in- + **spir** + e = thổi hơi vào → truyền cảm h
 ## Phím trong popup
 
 - <kbd>↑</kbd> <kbd>↓</kbd> chọn, <kbd>Enter</kbd> hoặc <kbd>Tab</kbd> chèn link, <kbd>Esc</kbd> đóng.
-- Gõ trọn một từ (chữ đã trùng khớp gợi ý đầu) rồi <kbd>Enter</kbd> mà chưa bấm ↑↓ → **xuống dòng** như thường, không chèn link. Muốn chèn: <kbd>Tab</kbd> hoặc ↓ rồi Enter.
+- <kbd>Enter</kbd> luôn chèn link (kể cả gõ trọn từ). Cài đặt **Enter khi đã gõ trọn từ → Xuống dòng** nếu muốn Enter xuống dòng khi chữ đã trùng khớp gợi ý đầu (lúc đó dùng <kbd>Tab</kbd> để chèn). Tuỳ chọn **Dấu cách cũng chèn link** (mặc định tắt).
 - Không gợi ý trong frontmatter, khối code ` ``` ` và công thức `$$`.
 
 ## Ghi chú từ vựng

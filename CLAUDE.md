@@ -31,7 +31,7 @@ Kèm: thẻ ôn cho plugin Spaced Repetition, dòng "Biến thể" dưới tiêu
 2. **`WordSuggest extends EditorSuggest`**
    - `onTrigger`: cắt các *đoạn đuôi* 1..`maxWords` từ trước con trỏ (`"u"`, `"look u"`…), bỏ qua khi trong `[[…]]`, trong `` `code` ``, hay token đứng sau chữ có dấu (`đi` ≠ `i`). Lưu `this.suffixes`, `this.vietLine`.
    - `getSuggestions`: duyệt `plugin.getIndex()`, khớp `key.norm.startsWith(suffix)`; đoạn đuôi dài ưu tiên. Mục từ điển (`entry.dict`) chỉ khi `!vietLine` và dài ≥ `dictMinChars`. Sắp xếp: số từ ↓, khớp chính xác, ghi chú trước từ điển, ngắn trước.
-   - `patchKeys`: chèn Tab và Enter "thông minh" lên **đầu** `this.scope.keys` (Obsidian chạy phím theo thứ tự). Enter khi gợi ý đầu `exact` và chưa bấm ↑↓ → đóng popup rồi **gửi lại** `keydown Enter` vào `editor.cm.contentDOM` (CodeMirror đã nhường Enter cho popup nên trả `true` không đủ).
+   - `patchKeys`: chèn Tab, Enter, Space lên **đầu** `this.scope.keys` (Obsidian chạy phím theo thứ tự). Enter mặc định luôn chọn; cài đặt `enterExact: "newline"` thì khi gợi ý đầu `exact` và chưa bấm ↑↓ → đóng popup rồi **gửi lại** `keydown Enter` vào `editor.cm.contentDOM` (CodeMirror đã nhường Enter cho popup nên trả `true` không đủ).
    - `inCodeOrFrontmatter`: không gợi ý trong frontmatter / ``` / `$$`.
    - `reposition`: **ghi đè API nội bộ** của Obsidian để đặt popup phía trên con trỏ.
    - `selectSuggestion`: thay đoạn đã gõ bằng `[[term]]` / `[[term|hiển thị]]`; nếu mục từ điển → `plugin.createFromDict`.
