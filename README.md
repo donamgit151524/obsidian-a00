@@ -28,6 +28,14 @@ Học theo họ từ (in- + **spir** + e = thổi hơi vào → truyền cảm h
 - **Cùng gốc**: các từ khác chung gốc (ghi chú + từ điển).
 - Bấm một mảnh → mở/tạo ghi chú `Tiếng Anh/Gốc từ/spir.md` (`con-.md`, `-ation.md`), trong đó có khung **Họ từ** chia theo động từ / danh từ / tính từ / trạng từ. Từ chưa có ghi chú hiện viền nét đứt, bấm là tạo.
 - Thẻ ôn: `**spir** (gốc từ)::thở, thổi hơi` và `**inspire** (tách từ)::in- (vào trong) + spir (thở) + e`.
+- Khối ` ```goc-tu ``` ` trong ghi chú bất kỳ: để trống = **mục lục** mọi tiền tố / gốc / hậu tố (số từ, ví dụ); mỗi dòng `spir`, `con-`, `-ation` = **họ từ** của mảnh đó; dòng `tiền tố` / `gốc từ` / `hậu tố` = mục lục một loại. Lệnh *Mở mục lục gốc từ* tạo sẵn ghi chú `Tiếng Anh/Mục lục gốc từ.md`.
+- Lệnh *Tách hàng loạt các từ chưa có phân tích*: danh sách đề xuất, sửa / bỏ chọn rồi lưu một lần.
+
+## Phím trong popup
+
+- <kbd>↑</kbd> <kbd>↓</kbd> chọn, <kbd>Enter</kbd> hoặc <kbd>Tab</kbd> chèn link, <kbd>Esc</kbd> đóng.
+- Gõ trọn một từ (chữ đã trùng khớp gợi ý đầu) rồi <kbd>Enter</kbd> mà chưa bấm ↑↓ → **xuống dòng** như thường, không chèn link. Muốn chèn: <kbd>Tab</kbd> hoặc ↓ rồi Enter.
+- Không gợi ý trong frontmatter, khối code ` ``` ` và công thức `$$`.
 
 ## Ghi chú từ vựng
 

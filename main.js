@@ -49,11 +49,57 @@ class WordSuggest extends EditorSuggest {
     this.plugin = plugin;
     this.suffixes = [];
     this.limit = plugin.settings.limit;
+    this.patchKeys();
+  }
+
+  // Phím trong popup (scope nội bộ của Obsidian, chạy theo thứ tự đăng ký):
+  // - Tab luôn chọn gợi ý.
+  // - Enter khi chữ đã gõ trùng hẳn gợi ý đầu và chưa bấm ↑↓ -> đóng popup, xuống dòng như thường
+  //   (gõ trọn "programming" rồi Enter không bị biến thành link).
+  patchKeys() {
+    const keys = this.scope?.keys;
+    const enter = keys?.find((k) => k.key === "Enter" && !k.modifiers);
+    if (!enter) return;
+    for (const k of keys) {
+      if (!["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", "P", "N"].includes(k.key)) continue;
+      const f = k.func;
+      k.func = (e, ctx) => {
+        this.navigated = true;
+        return f(e, ctx);
+      };
+    }
+    const choose = enter.func;
+    const tab = this.scope.register([], "Tab", (e, ctx) => choose(e, ctx));
+    const smartEnter = this.scope.register([], "Enter", (e, ctx) => {
+      if (!this.navigated && this.lastSuggestions?.[0]?.exact) {
+        // CodeMirror đã nhường phím Enter cho popup -> đóng popup rồi gửi lại Enter cho trình soạn thảo
+        // (giữ được nối danh sách "- …" của Obsidian)
+        const editor = this.context?.editor;
+        this.close();
+        const dom = editor?.cm?.contentDOM;
+        if (dom) {
+          setTimeout(() => {
+            dom.dispatchEvent(
+              new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true, cancelable: true })
+            );
+          }, 0);
+        } else {
+          editor?.exec?.("newlineAndIndent");
+        }
+        return false;
+      }
+      return choose(e, ctx);
+    });
+    // Đưa hai phím mới lên trước phím Enter mặc định
+    for (const h of [tab, smartEnter]) keys.splice(keys.indexOf(h), 1);
+    keys.unshift(smartEnter, tab);
   }
 
   onTrigger(cursor, editor) {
     const s = this.plugin.settings;
     if (!s.enabled) return null;
+    this.navigated = false;
+    if (inCodeOrFrontmatter(editor, cursor.line)) return null;
 
     const before = editor.getLine(cursor.line).slice(0, cursor.ch);
 
@@ -120,7 +166,7 @@ class WordSuggest extends EditorSuggest {
       }
     }
 
-    return [...found.values()]
+    this.lastSuggestions = [...found.values()]
       .sort(
         (a, b) =>
           b.sfx.words - a.sfx.words ||
@@ -130,6 +176,7 @@ class WordSuggest extends EditorSuggest {
           a.key.norm.localeCompare(b.key.norm)
       )
       .slice(0, this.plugin.settings.limit);
+    return this.lastSuggestions;
   }
 
   // reposition() là API nội bộ của Obsidian (mặc định đặt popup dưới con trỏ).
@@ -264,6 +311,57 @@ class AddWordModal extends Modal {
     } catch (e) {
       new Notice(e.message);
     }
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+// ---------- Tách hàng loạt ----------
+
+class BulkSplitModal extends Modal {
+  constructor(plugin) {
+    super(plugin.app);
+    this.plugin = plugin;
+    this.rows = plugin.bulkCandidates();
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    this.setTitle("Tách hàng loạt");
+    if (!this.rows.length) {
+      contentEl.setText("Không có từ nào cần tách: mọi ghi chú đã có phân tích, hoặc chưa đoán được cách tách.");
+      return;
+    }
+    contentEl.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Các từ chưa có phan_tich, kèm cách tách đề xuất. Sửa ô nếu sai, tắt công tắc để bỏ qua. " +
+        "Viết tiền tố có - phía sau (in-), hậu tố có - phía trước (-ation).",
+    });
+    for (const r of this.rows) {
+      new Setting(contentEl)
+        .setName(r.e.term)
+        .setDesc(r.e.nghia)
+        .addText((t) => t.setValue(r.text).onChange((v) => (r.text = v.trim())))
+        .addToggle((t) => t.setValue(r.on).onChange((v) => (r.on = v)));
+    }
+    new Setting(contentEl).addButton((b) =>
+      b
+        .setButtonText(`Lưu các mục đã chọn`)
+        .setCta()
+        .onClick(async () => {
+          const chosen = this.rows.filter((r) => r.on && r.text);
+          b.setDisabled(true);
+          for (const r of chosen) {
+            const file = this.app.vault.getAbstractFileByPath(r.e.path);
+            if (file instanceof TFile) await this.plugin.setPhanTich(file, r.text, true);
+          }
+          new Notice(`Đã lưu cách tách cho ${chosen.length} từ`);
+          this.close();
+        })
+    );
   }
 
   onClose() {
@@ -563,6 +661,20 @@ module.exports = class GoiYTiengAnh extends Plugin {
       name: "Thêm từ vựng mới (không chèn link)",
       callback: () => new AddWordModal(this, "").open(),
     });
+
+    this.addCommand({
+      id: "bulk-split",
+      name: "Tách hàng loạt các từ chưa có phân tích",
+      callback: () => new BulkSplitModal(this).open(),
+    });
+
+    this.addCommand({
+      id: "morph-index",
+      name: "Mở mục lục gốc từ (tiền tố, gốc, hậu tố)",
+      callback: () => this.openMorphIndex().catch((e) => new Notice(e.message)),
+    });
+
+    this.registerMarkdownCodeBlockProcessor("goc-tu", (source, el, ctx) => this.renderMorphBlock(source, el, ctx.sourcePath));
   }
 
   // Phần hiển thị dưới tiêu đề (không ghi file): Biến thể, Phân tích, Cùng gốc; ghi chú gốc từ thì Họ từ
@@ -647,14 +759,17 @@ module.exports = class GoiYTiengAnh extends Plugin {
   }
 
   buildMorphDeco(file) {
-    const part = this.morphPartOf(file);
-    const fm = this.app.metadataCache.getFileCache(file)?.frontmatter || {};
-    const meaning = str(fm.nghia) || MORPH[part.kind]?.get(part.key)?.meaning || "";
     const box = createDiv({ cls: "gyta-deco gyta-family" });
+    this.renderFamily(box, this.morphPartOf(file), file.path, false);
+    return box;
+  }
+
+  // Tiêu đề mảnh + họ từ chia theo từ loại. clickable: chip mảnh bấm được (khi nhúng trong ghi chú khác)
+  renderFamily(box, part, sourcePath, clickable) {
     const head = box.createDiv({ cls: "gyta-forms" });
-    const chip = head.createSpan({ cls: `gyta-part is-${part.kind}` });
-    chip.createSpan({ text: morphNoteName(part.kind, part.key) });
-    head.createSpan({ cls: "gyta-forms-title", text: `${MORPH_LABEL[part.kind]} · ${meaning}` });
+    if (clickable) this.renderPart(head, part, sourcePath);
+    else head.createSpan({ cls: `gyta-part is-${part.kind}` }).createSpan({ text: morphNoteName(part.kind, part.key) });
+    head.createSpan({ cls: "gyta-forms-title", text: `${MORPH_LABEL[part.kind]} · ${this.partMeaning(part)}` });
 
     const family = this.family(part);
     const groups = new Map();
@@ -671,10 +786,82 @@ module.exports = class GoiYTiengAnh extends Plugin {
       if (!list) continue;
       const row = box.createDiv({ cls: "gyta-forms" });
       row.createSpan({ cls: "gyta-forms-title", text: g });
-      for (const e of list.slice(0, 60)) this.renderWordChip(row, e, file.path);
+      for (const e of list.slice(0, 60)) this.renderWordChip(row, e, sourcePath);
       if (list.length > 60) row.createSpan({ cls: "gyta-forms-title", text: `+${list.length - 60}` });
     }
-    return box;
+  }
+
+  // Khối ```goc-tu```: để trống = mục lục mọi mảnh; mỗi dòng "spir", "con-", "-ation" = họ từ của mảnh đó;
+  // dòng "tiền tố" / "gốc từ" / "hậu tố" = mục lục chỉ loại đó
+  renderMorphBlock(source, el, sourcePath) {
+    el.addClass("gyta-block");
+    const lines = source.split("\n").map((l) => l.trim()).filter(Boolean);
+    const only = { "tiền tố": "prefix", "gốc từ": "root", "gốc": "root", "hậu tố": "suffix" };
+    if (!lines.length || lines.every((l) => only[l.toLowerCase()])) {
+      const kinds = lines.length ? lines.map((l) => only[l.toLowerCase()]) : ["prefix", "root", "suffix"];
+      for (const kind of kinds) this.renderMorphIndex(el, kind, sourcePath);
+      return;
+    }
+    for (const line of lines) {
+      const part = parseParts(line)?.[0];
+      if (!part || part.kind === "link" || part.kind === "word") {
+        el.createDiv({ cls: "gyta-forms-title", text: `Không hiểu "${line}" — viết spir, con- hoặc -ation` });
+        continue;
+      }
+      this.renderFamily(el.createDiv({ cls: "gyta-family" }), part, sourcePath, true);
+    }
+  }
+
+  renderMorphIndex(el, kind, sourcePath) {
+    const keys = [...new Set([...MORPH[kind].values()].map((v) => v.key))];
+    const rows = keys
+      .map((key) => ({ key, family: this.family({ kind, text: key, key }) }))
+      .filter((r) => r.family.length)
+      .sort((a, b) => b.family.length - a.family.length || a.key.localeCompare(b.key));
+    el.createDiv({
+      cls: "gyta-family-title",
+      text: `${MORPH_LABEL[kind][0].toUpperCase()}${MORPH_LABEL[kind].slice(1)} (${rows.length}/${keys.length} có từ)`,
+    });
+    const table = el.createEl("table", { cls: "gyta-index" });
+    for (const r of rows) {
+      const tr = table.createEl("tr");
+      this.renderPart(tr.createEl("td"), { kind, text: r.key, key: r.key }, sourcePath);
+      tr.createEl("td", { cls: "gyta-index-count", text: String(r.family.length) });
+      const ex = tr.createEl("td").createDiv({ cls: "gyta-index-ex" });
+      for (const e of r.family.slice(0, 5)) this.renderWordChip(ex, e, sourcePath);
+      if (r.family.length > 5) ex.createSpan({ cls: "gyta-forms-title", text: `+${r.family.length - 5}` });
+    }
+  }
+
+  // Lưu cách tách đề xuất cho nhiều từ một lúc
+  bulkCandidates() {
+    return this.getIndex()
+      .filter((e) => !e.dict && !this.partsOf(e))
+      .map((e) => ({ e, parts: analyze(e.term) }))
+      .filter((r) => r.parts && r.parts.length > 1)
+      .map((r) => ({ ...r, text: formatParts(r.parts), on: true }));
+  }
+
+  async openMorphIndex() {
+    const path = normalizePath(`${this.settings.morphFolder.split("/").slice(0, -1).join("/") || ""}/Mục lục gốc từ.md`);
+    let file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) {
+      file = await this.app.vault.create(
+        path,
+        [
+          "Mục lục mọi tiền tố, gốc từ, hậu tố có trong từ vựng của bạn (do plugin Gợi ý tiếng Anh vẽ).",
+          "",
+          "Bấm vào một mảnh để mở ghi chú của nó; bấm vào một từ để mở / tạo ghi chú từ.",
+          "",
+          "```goc-tu",
+          "```",
+          "",
+          "> Nhúng họ từ vào ghi chú bất kỳ: viết khối `goc-tu` với từng dòng `spir`, `con-`, `-ation`.",
+          "",
+        ].join("\n")
+      );
+    }
+    await this.app.workspace.getLeaf(false).openFile(file);
   }
 
   // Mảnh tô màu: tiền tố đỏ, gốc xanh, hậu tố cam, từ xanh lá; bấm để mở ghi chú của mảnh
@@ -700,12 +887,23 @@ module.exports = class GoiYTiengAnh extends Plugin {
     return entry._parts;
   }
 
-  // Mọi từ (ghi chú + từ điển) có mảnh này; ghi chú chưa xác nhận cách tách thì dùng đề xuất
+  // Mọi từ (ghi chú + từ điển) có mảnh này; ghi chú chưa xác nhận cách tách thì dùng đề xuất.
+  // Bảng "mảnh -> các từ" dựng một lần cho mỗi lần chỉ mục thay đổi.
   family(part) {
-    return this.getIndex().filter((e) => {
-      const parts = this.partsOf(e) || analyze(e.term);
-      return parts && parts.some((p) => samePart(p, part));
-    });
+    const idx = this.getIndex();
+    if (this.familyFor !== idx) {
+      this.familyMap = new Map();
+      for (const e of idx) {
+        const parts = this.partsOf(e) || analyze(e.term);
+        if (!parts) continue;
+        for (const k of new Set(parts.filter((p) => p.kind !== "link").map(partId))) {
+          if (!this.familyMap.has(k)) this.familyMap.set(k, []);
+          this.familyMap.get(k).push(e);
+        }
+      }
+      this.familyFor = idx;
+    }
+    return this.familyMap.get(partId(part)) || [];
   }
 
   partMeaning(p) {
@@ -793,13 +991,13 @@ module.exports = class GoiYTiengAnh extends Plugin {
   }
 
   // Xác nhận cách tách: ghi phan_tich + thẻ "tách từ"
-  async setPhanTich(file, text) {
+  async setPhanTich(file, text, quiet = false) {
     await this.app.fileManager.processFrontMatter(file, (fm) => {
       fm.phan_tich = text;
     });
     this.index = null;
     if (this.settings.morphCards) await this.addMissingCards([file], { phan_tich: text, quiet: true });
-    new Notice(`Đã lưu cách tách: ${text}`);
+    if (!quiet) new Notice(`Đã lưu cách tách: ${text}`);
   }
 
   // **inspire** (tách từ)::in- (vào trong) + spir (thở, thổi hơi) + e
@@ -984,6 +1182,32 @@ const CARD_HEADING = "## Thẻ ôn";
 
 function cleanPath(v) {
   return v.trim().replace(/^\/+|\/+$/g, "");
+}
+
+// Con trỏ đang trong frontmatter, khối code ``` / ~~~ hoặc công thức $$ -> không gợi ý
+function inCodeOrFrontmatter(editor, line) {
+  if (typeof editor.lineCount !== "function") return false;
+  if (editor.getLine(0).trim() === "---") {
+    for (let i = 1; i < editor.lineCount(); i++) {
+      if (editor.getLine(i).trim() === "---") {
+        if (line <= i) return true;
+        break;
+      }
+    }
+  }
+  let fence = null;
+  let math = false;
+  for (let i = 0; i < line; i++) {
+    const t = editor.getLine(i).trim();
+    const m = t.match(/^(`{3,}|~{3,})/);
+    if (m && !math) {
+      if (!fence) fence = m[1];
+      else if (t.startsWith(fence)) fence = null;
+    } else if (!fence && t.startsWith("$$")) {
+      if (!(t.length > 2 && t.endsWith("$$"))) math = !math;
+    }
+  }
+  return !!fence || math;
 }
 
 function cardLine({ term, ipa, loai, nghia }) {
@@ -1375,10 +1599,20 @@ function prefixChain(s, depth = 0) {
   for (const form of MORPH_FORMS.prefix) {
     if (!s.startsWith(form)) continue;
     const rest = prefixChain(s.slice(form.length), depth + 1);
-    if (rest) return [{ kind: "prefix", text: form, key: MORPH.prefix.get(form).key }, ...rest];
+    if (!rest) continue;
+    const key = MORPH.prefix.get(form).key;
+    // Hai tiền tố liền nhau chỉ khi cả hai dài ≥ 2 chữ và khác nhau: in-de-pend ✓, a-ir-port ✗, de-e-ply ✗
+    if (rest.length && (form.length < 2 || rest[0].text.length < 2 || rest[0].key === key)) continue;
+    return [{ kind: "prefix", text: form, key }, ...rest];
   }
   return null;
 }
+
+// Tiền tố còn "sống", ghép được với từ có sẵn: un- + happy, re- + turn. (al-, ap-, ab-… thì không: about ≠ ab + out)
+const CLEAR_SUFFIX = new Set("ment ness ful less ship hood dom ist ism able".split(" "));
+const PRODUCTIVE_PREFIX = new Set(
+  "un re dis mis non pre post over under out inter super sub trans anti micro multi semi tele auto uni bi tri extra counter fore mono co en em de im in il ir ex".split(" ")
+);
 
 // Phần sau gốc từ: chuỗi hậu tố, cho phép một nguyên âm nối ("inspir-e", "spir-a-…")
 function suffixChain(s, depth = 0) {
@@ -1402,7 +1636,13 @@ function suffixChain(s, depth = 0) {
 
 const analyzeCache = new Map();
 // Trông giống nhưng không phải (empire ≠ em + pir + e; path = đường đi ≠ gốc path = cảm xúc)
-const NO_SPLIT = new Set(["empire", "vampire", "umpire", "satire", "inch", "pension", "path"]);
+const NO_SPLIT = new Set(
+  (
+    "empire vampire umpire satire inch pension path seven often estate especially image sister permanent " +
+    "secure former center bother flower listen shoulder shower career billion agency unless repair remain " +
+    "remember relate delay delight detail deserve devote entry person moment theory minister mention eager missing"
+  ).split(" ")
+);
 
 // Đề xuất cách tách: tiền tố + gốc + hậu tố. Chỉ trả kết quả khi thấy gốc từ trong bảng,
 // hoặc tiền tố + từ có thật (un + happy), hoặc từ có thật + hậu tố (spirit + ual).
@@ -1418,6 +1658,9 @@ function analyze(term) {
         const suf = pre && suffixChain(w.slice(i + form.length));
         if (!suf) continue;
         const parts = [...pre, { kind: "root", text: form, key: MORPH.root.get(form).key }, ...suf.parts];
+        // Gốc ngắn (≤ 3 chữ) dễ trùng ngẫu nhiên: cần thêm tiền tố/hậu tố thật dài ≥ 2 (acid, even, mine ✗)
+        const affix = parts.some((p) => (p.kind === "prefix" || p.kind === "suffix") && p.text.length >= 2);
+        if (form.length <= 3 && !affix) continue;
         // Cả từ chính là gốc (spirit, port): vẫn tính vào họ từ, nhưng không hiện dòng tách 1 mảnh
         const score = form.length * 10 - suf.leftover * 3 - parts.length;
         if (!best || score > best.score) best = { score, parts };
@@ -1425,15 +1668,22 @@ function analyze(term) {
     }
     if (best) result = best.parts;
     if (!result) {
-      const isWord = (x) => x.length >= 3 && dictLookup(x);
-      for (let i = 2; i < w.length - 2 && !result; i++) {
-        const pre = prefixChain(w.slice(0, i));
-        if (pre && isWord(w.slice(i))) result = [...pre, { kind: "word", text: w.slice(i) }];
+      // Tiền tố "sống" + từ có thật (re- + set, un- + happy)
+      for (const form of MORPH_FORMS.prefix) {
+        const rest = w.slice(form.length);
+        if (!PRODUCTIVE_PREFIX.has(form) || !w.startsWith(form) || rest.length < 3 || !dictLookup(rest)) continue;
+        result = [{ kind: "prefix", text: form, key: MORPH.prefix.get(form).key }, { kind: "word", text: rest }];
+        break;
       }
-      for (let i = w.length - 2; i >= 3 && !result; i--) {
+      // Từ có thật + hậu tố. Từ 3 chữ chỉ đi với hậu tố rõ nghĩa (pay + -ment ✓; ear + -ly, the + -ory ✗)
+      for (let i = w.length - 1; i >= 3 && !result; i--) {
         const suf = suffixChain(w.slice(i));
-        if (suf && !suf.leftover && suf.parts.length && isWord(w.slice(0, i))) {
-          result = [{ kind: "word", text: w.slice(0, i) }, ...suf.parts];
+        const base = w.slice(0, i);
+        const first = suf?.parts[0]?.key;
+        // "-y" một chữ dễ trùng (party, ready, every): chỉ với từ gốc dài (discover + -y)
+        const okLen = first === "y" ? base.length >= 6 : base.length >= 4 || CLEAR_SUFFIX.has(first);
+        if (suf && !suf.leftover && suf.parts.length && okLen && dictLookup(base)) {
+          result = [{ kind: "word", text: base }, ...suf.parts];
         }
       }
     }
@@ -1473,9 +1723,9 @@ function parseParts(text) {
   return parts.length ? parts : null;
 }
 
-// Hai mảnh cùng loại, cùng tên chính -> cùng họ
-function samePart(a, b) {
-  return a.kind === b.kind && a.kind !== "link" && (a.key || a.text).toLowerCase() === (b.key || b.text).toLowerCase();
+// Mã của một mảnh: cùng loại + cùng tên chính -> cùng họ ("root:spir" cho cả spir, pir, spirit)
+function partId(p) {
+  return `${p.kind}:${(p.key || p.text).toLowerCase()}`;
 }
 
 // ---------- Từ điển có sẵn ----------

@@ -194,6 +194,39 @@
   color: var(--text-muted);
 }
 
+.gyta-block .gyta-family {
+  margin-bottom: 16px;
+}
+
+.gyta-index {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.gyta-index td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  vertical-align: middle;
+}
+
+.gyta-index td:first-child {
+  white-space: nowrap;
+}
+
+.gyta-index-ex {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.gyta-index-count {
+  color: var(--text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .gyta-family-title {
   font-weight: 600;
   margin: 8px 0 2px;
