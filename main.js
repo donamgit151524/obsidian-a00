@@ -509,7 +509,8 @@ module.exports = class GoiYTiengAnh extends Plugin {
       .map((file) => {
         const fm = cache.getFileCache(file)?.frontmatter || {};
         const aliases = parseFrontMatterAliases(fm) || [];
-        const forms = fm.khong_chia === true ? [] : inflect(file.basename, str(fm.loai), list(fm.bien_the));
+        // khong_chia: bỏ phần tự sinh, chỉ dùng đúng danh sách bien_the bạn ghi
+        const forms = inflect(file.basename, fm.khong_chia === true ? "" : str(fm.loai), list(fm.bien_the));
         return {
           path: file.path,
           folder: this.folderFor(file.path).path,
