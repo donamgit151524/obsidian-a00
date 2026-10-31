@@ -1,0 +1,4 @@
+# Cài đặt riêng của từng vault, không đưa lên git
+data.json
+node_modules/
+.DS_Store

@@ -1,0 +1,51 @@
+.gyta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gyta-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gyta-term {
+  font-weight: 600;
+}
+
+.gyta-alias,
+.gyta-ipa {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.gyta-type {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-accent);
+  font-style: italic;
+}
+
+.gyta-folder {
+  margin-left: auto;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+.gyta-folder-row .setting-item-info {
+  display: none;
+}
+
+.gyta-folder-row .setting-item-control {
+  flex-wrap: wrap;
+}
+
+.gyta-folder-row input[type="text"] {
+  flex: 1 1 180px;
+}
+
+.gyta-meaning {
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+}
